@@ -28,8 +28,14 @@ public class Problem2 extends BaseClass {
         // Step 2: Inside the for loop, add each iderated value to the total
         // Step 3: Set the modifiedTotal value equal to the total value times 1.00
 
+        for (double i : arr)
+        {
+            total += i;
+        }
+
         // Solve Challenge 2 here
         Object modifiedTotal = "?";
+        modifiedTotal = total - (total % 0.01);
 
         // End Solution Edits
         System.out.println("Total Raw Value: " +total);
