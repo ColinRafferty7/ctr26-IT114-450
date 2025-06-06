@@ -16,13 +16,18 @@ public class Problem1 extends BaseClass {
         System.out.print("Output Array: ");
         // Start Solution Edits
         
+        // ctr26 06-06-2025
+
+        // Step 1: Use a for loop to iterate through each value in the array
+        // Step 2: Use the mod function to test if the value is odd
+        // Step 3: If the value is odd, use the print function to output the values
 
         // End Solution Edits
         System.out.println("");
         System.out.println("______________________________________");
     }
     public static void main(String[] args) {
-        final String ucid = "mt85"; // <-- change to your UCID
+        final String ucid = "ctr26"; // <-- change to your UCID
         // no edits below this line
         printHeader(ucid, 1);
         printOdds(array1,1);
