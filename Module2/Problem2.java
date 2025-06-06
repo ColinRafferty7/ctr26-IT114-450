@@ -26,13 +26,9 @@ public class Problem2 extends BaseClass {
 
         // Step 1: Use a for loop to iderate through each value of the array
         // Step 2: Inside the for loop, add each iderated value to the total
-      
+        // Step 3: Set the modifiedTotal value equal to the total value times 1.00
+
         // Solve Challenge 2 here
-
-        //ctr26 06-06-2025
-
-        //Step 1: Set the modifiedTotal value equal to the total value times 1.00
-
         Object modifiedTotal = "?";
 
         // End Solution Edits
