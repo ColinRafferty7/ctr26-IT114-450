@@ -18,6 +18,13 @@ public class Problem3 extends BaseClass {
         Object[] output = new Object[arr.length];
         // Start Solution Edits
         
+        // ctr26 06-06-2025
+
+        // Step 1: Use for loop to iterate through each value of the array
+        // Step 2: Create a double variable to store the value of each index regardless of type
+        // Step 3: Use if statement to check if the values are less than 0
+        // Step 4: If they are, multiply the value by -1
+        // Step 5: Use the value of the double and the type of the original index to set the output
 
         // End Solution Edits
         System.out.println("Output: ");
@@ -27,7 +34,7 @@ public class Problem3 extends BaseClass {
     }
 
     public static void main(String[] args) {
-        final String ucid = "mt85"; // <-- change to your UCID
+        final String ucid = "ctr26"; // <-- change to your UCID
         // no edits below this line
         printHeader(ucid, 3);
         bePositive(array1, 1);
