@@ -24,13 +24,13 @@ public class Problem1 extends BaseClass {
 
         // End Solution Edits
 
-    for (int i : arr)
-    {
-        if (i % 2 == 1)
+        for (int i : arr)
         {
-            System.out.print(i + ", ");
+            if (i % 2 == 1)
+            {
+                System.out.print(i + ", ");
+            }
         }
-    }
 
         System.out.println("");
         System.out.println("______________________________________");
