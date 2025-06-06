@@ -23,6 +23,15 @@ public class Problem1 extends BaseClass {
         // Step 3: If the value is odd, use the print function to output the values
 
         // End Solution Edits
+
+    for (int i : arr)
+    {
+        if (i % 2 == 1)
+        {
+            System.out.print(i + ", ");
+        }
+    }
+
         System.out.println("");
         System.out.println("______________________________________");
     }
