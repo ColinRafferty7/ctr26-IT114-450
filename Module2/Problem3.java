@@ -26,6 +26,23 @@ public class Problem3 extends BaseClass {
         // Step 4: If they are, multiply the value by -1
         // Step 5: Use the value of the double and the type of the original index to set the output
 
+        for (int i = 0; i < arr.length; i++)
+        {
+            double value = Double.parseDouble(arr[i].toString());
+            if (value < 0)
+            {
+                value *= -1;
+            }
+            if (arr[i].getClass() == Integer.class)
+                output[i] = (int) value;
+            else if (arr[i].getClass() == Double.class)
+                output[i] = value;
+            else if (arr[i].getClass() == Float.class)
+                output[i] = (float) value;
+            else
+                output[i] = String.valueOf(value);
+        }
+
         // End Solution Edits
         System.out.println("Output: ");
         printOutputWithType(output);
