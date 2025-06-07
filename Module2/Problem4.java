@@ -30,8 +30,19 @@ public class Problem4 extends BaseClass {
         
         for(int i = 0; i <arr.length; i++){
             // Start Solution Edits
+
+            // ctr26 06-06-2025
+
+            // Step 1: Create a  dictionary string that contains all the characters that we want to keep
+            // Step 2: Iterate through each string and remove all charaters not contained in the dictionary string
+            // Step 3: Iterate through each string again and check for each letter that appears after a space
+            // Step 4: For every letter that appears after a space, increase a counter by 1 and only convert the letter
+            // to capital if the counter is greater than 0
+            // Step 5: Use the trim function on each string to remove leading and trailing spaces
+            // Step 6: Iterate through each string and set any instance of double spaces to only single space
+            // Step 7: Use the length function to calculate the middle of each string and remove the middle sections
             
-             // End Solution Edits
+            // End Solution Edits
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }
 
