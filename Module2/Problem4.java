@@ -41,8 +41,6 @@ public class Problem4 extends BaseClass {
             // Step 5: Use the trim function on each string to remove leading and trailing spaces
             // Step 6: Iterate through each string and set any instance of double spaces to only single space
             // Step 7: Use the length function to calculate the middle of each string and remove the middle sections
-            
-            // End Solution Edits
 
             // Challenge 1
             String dict = "abcdefghijklmnopqrstuvwxyz1234567890 ";
@@ -92,6 +90,7 @@ public class Problem4 extends BaseClass {
 
             placeholderForModifiedPhrase = arr[i];
 
+            // End Solution Edits
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }
 
