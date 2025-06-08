@@ -43,6 +43,55 @@ public class Problem4 extends BaseClass {
             // Step 7: Use the length function to calculate the middle of each string and remove the middle sections
             
             // End Solution Edits
+
+            // Challenge 1
+            String dict = "abcdefghijklmnopqrstuvwxyz1234567890 ";
+            for (int j = 0; j < arr[i].length(); j++)
+            {
+                if (!dict.contains(arr[i].toLowerCase().substring(j, j + 1)))
+                {
+                    arr[i] = arr[i].replace(arr[i].substring(j, j + 1), " ");
+                }
+            } 
+
+            // Challenge 3
+            arr[i] = arr[i].trim();
+            while (arr[i].contains("  "))
+            {
+                arr[i] = arr[i].replaceAll("  ", " ");
+            }
+
+            // Challenge 2
+            String[] split = arr[i].toLowerCase().split(" ");
+            arr[i] = "";
+            int count = 0;
+            for (int k = 0; k < split.length; k++)
+            {
+                if (count > 0)
+                {
+                    arr[i] += split[k].substring(0, 1).toUpperCase();
+                    arr[i] += split[k].substring(1);
+                }
+                else
+                {
+                    arr[i] += split[k];
+                }
+                count++;
+            }
+
+            // Challenge 4
+            int middle = (arr[i].length() / 2) - 1;
+            if (arr[i].length() < middle + 3)
+            {
+                placeholderForMiddleCharacters = "Not enough characters";
+            }
+            else
+            {
+                placeholderForMiddleCharacters = arr[i].substring(middle, middle + 3);
+            }
+
+            placeholderForModifiedPhrase = arr[i];
+
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }
 
