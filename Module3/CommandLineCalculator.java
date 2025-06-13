@@ -11,8 +11,18 @@ Challenge 1: Command-Line Calculator
 - Capture 5 variations of tests
 */
 
+// ctr26 06/12/2025
+
+// Step 1: Take the string array args and split it by each space
+// Step 2: Use a switch for the second value in the newly split array to determine which operation to perform
+// Step 3: Throw exception if the new array has less than 3 values
+// Step 4: Convert the numbers from strings to their respective type using type casting
+// Step 5: Throw exception if the number are not able to properly convert
+// Step 6: Perform the operation and assign the result to new sum variable
+// Step 7: Calculate how many decimal places the original inputs have and format the sum using that value
+
 public class CommandLineCalculator extends BaseClass {
-    private static String ucid = "mt85"; // <-- change to your ucid
+    private static String ucid = "ctr26"; // <-- change to your ucid
 
     public static void main(String[] args) {
         printHeader(ucid, 1, "Objective: Implement a calculator using command-line arguments.");
