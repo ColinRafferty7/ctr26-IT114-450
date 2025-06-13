@@ -33,6 +33,8 @@ public class CommandLineCalculator extends BaseClass {
             return;
         }
 
+        double sum = 0.0;
+
         try {
             System.out.println("Calculating result...");
             // extract the equation (format is <num1> <operator> <num2>)
@@ -46,9 +48,45 @@ public class CommandLineCalculator extends BaseClass {
             // i.e., 0.1 + 0.2 would show as one decimal place (0.3), 0.11 + 0.2 would shows
             // as two (0.31), etc
 
+            double val1 = Double.parseDouble(args[0]);
+            double val2 = Double.parseDouble(args[2]);
+
+            switch (args[1]) 
+            {
+                case ("+"):
+                {
+                    sum = val1 + val2;
+                    break;
+                }
+                case ("-"):
+                {
+                    sum = val1 - val2;
+                    break;
+                }
+                default:
+                {
+                    System.out.println("Operator not supported");
+                    throw new Exception();
+                }
+            };
+
         } catch (Exception e) {
             System.out.println("Invalid input. Please ensure correct format and valid numbers.");
         }
+
+        int dec = 0;
+
+            if (args[0].indexOf(".") > -1 || args[2].indexOf(".") > -1)
+            {
+                dec = args[0].length() - args[0].indexOf(".");
+                if (args[2].length() - args[2].indexOf(".") > dec)
+                {
+                    dec = args[2].length() - args[2].indexOf(".");
+                }
+            }
+            String sumStr = String.format("%." + (dec - 1) + "f", sum);
+
+            System.out.println("The sum is: " + sumStr);
 
         printFooter(ucid, 1);
     }
