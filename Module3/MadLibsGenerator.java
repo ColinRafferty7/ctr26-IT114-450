@@ -17,8 +17,8 @@ Challenge 3: Mad Libs Generator (Randomized Stories)
 */
 
 public class MadLibsGenerator extends BaseClass {
-    private static final String STORIES_FOLDER = "M3/stories";
-    private static String ucid = "mt85"; // <-- change to your ucid
+    private static final String STORIES_FOLDER = "Module3/stories";
+    private static String ucid = "ctr26"; // <-- change to your ucid
 
     public static void main(String[] args) {
         printHeader(ucid, 3,
@@ -35,6 +35,17 @@ public class MadLibsGenerator extends BaseClass {
         }
         List<String> lines = new ArrayList<>();
         // Start edits
+
+        // ctr26 06/15/2025
+
+        // Step 1: Randomly generate an integer between 1-5 and create a story_.txt String with the integer
+        // Step 2: Read the file that matches the created string and split it into a string array of each line
+        // Step 3: Split the each line into an array of each word and iterate through it using a for loop
+        // Step 4: Use an if statement to only output the placeholder with the <>
+        // Step 5: Use the scanner class to read each input of the user
+        // Steo 6: Replace the placeholder in the word array with the users input
+        // Step 7: Join the new word array into sentences
+        // Step 8: Print out the full file sentence by sentence
 
         // load a random story file
 
