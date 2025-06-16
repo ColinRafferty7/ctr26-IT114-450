@@ -61,6 +61,7 @@ public class MadLibsGenerator extends BaseClass {
             {
                 lines.add(reader.nextLine());
             } 
+            reader.close();
         }
         catch (IOException e)
         {
@@ -79,14 +80,12 @@ public class MadLibsGenerator extends BaseClass {
                 {
                     System.out.println("Please enter a(n): " + word.replaceAll("[^a-zA-Z]", " ").trim());
                     String input = scanner.nextLine();
-                    
+
                     // apply the update to the same collection slot
                     lines.set(i, lines.get(i).replace(word.replaceAll("[^\\w<>]", ""), input));
                 }
             }
         }
-       
-        
 
         // End edits
         System.out.println("\nYour Completed Mad Libs Story:\n");
