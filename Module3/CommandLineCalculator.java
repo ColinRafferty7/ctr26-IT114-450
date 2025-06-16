@@ -93,8 +93,6 @@ public class CommandLineCalculator extends BaseClass {
             System.out.println("The sum is: " + (int) sum);
         }
 
-        
-
         printFooter(ucid, 1);
     }
 }
