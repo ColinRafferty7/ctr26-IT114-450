@@ -39,29 +39,71 @@ public class SlashCommandHandler extends BaseClass {
         // Step 9: For /echo, repeat steps for /greet, but allow for more than 2 values
         // Step 10: Join each value after the /echo command and output it as a single string
 
-        while (true) {
+        wl: while (true) {
             System.out.print("Enter command: ");
-            // get entered text
+            String[] cmd = scanner.nextLine().split(" ");  
 
-            // check if greet
-            //// process greet
+            try 
+            {
+                switch (cmd[0].toLowerCase())
+                {
+                    case "/greet":
+                    {
+                        if (cmd.length == 2)
+                        {
+                            System.out.println(cmd[1]);
+                        }
+                        else 
+                        {
+                            throw new Exception();
+                        }
+                        break;
+                    }
+                    case "/roll":
+                    {
+                        if (cmd.length == 2)
+                        {
+                            int num = Integer.parseInt(cmd[1].substring(0, cmd[1].indexOf("d")));
+                            int sides = Integer.parseInt(cmd[1].substring(cmd[1].indexOf("d") + 1, cmd[1].length()));
+                            int sum = 0;
 
-            // check if roll
-            //// process roll
-            //// handle invalid formats
-
-            // check if echo
-            //// process echo
-
-            // check if quit
-            //// process quit
-
-            // handle invalid commnads
-
-            // delete this condition/block, it's just here so the sample runs without edits
-            if (1 == 1) {
-                System.out.println("Breaking loop");
-                break;
+                            for (int i = 0; i < num; i++)
+                            {
+                                sum += (int) (Math.random() * sides) + 1;
+                            }
+                            
+                            System.out.println("Rolled " + num + "d" + sides + " and got " + sum + "!");
+                        }
+                        else
+                        {
+                            throw new Exception();
+                        }
+                        break;
+                    }
+                    case "/echo":
+                    {
+                        for (int i = 1; i < cmd.length; i++)
+                        {
+                            System.out.print(cmd[i] + " ");
+                        }
+                        System.out.println();
+                        break;
+                    }
+                    case "/quit":
+                    {
+                        System.out.println("Exiting program...");
+                        break wl;
+                    }
+                    default:
+                    {
+                        System.out.println("Invalid command.");
+                        break;
+                    }
+                }   
+            } 
+            catch (Exception e)
+            {
+                System.out.println("Invalid command format.");
             }
         }
 
