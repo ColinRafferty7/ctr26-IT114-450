@@ -76,17 +76,24 @@ public class CommandLineCalculator extends BaseClass {
 
         int dec = 0;
 
-            if (args[0].indexOf(".") > -1 || args[2].indexOf(".") > -1)
-            {
-                dec = args[0].length() - args[0].indexOf(".");
-                if (args[2].length() - args[2].indexOf(".") > dec)
-                {
-                    dec = args[2].length() - args[2].indexOf(".");
-                }
-            }
-            String sumStr = String.format("%." + (dec - 1) + "f", sum);
+        String sumStr = "";
 
+        if (args[0].indexOf(".") > -1 || args[2].indexOf(".") > -1)
+        {
+            dec = args[0].length() - args[0].indexOf(".");
+            if (args[2].length() - args[2].indexOf(".") > dec)
+            {
+                dec = args[2].length() - args[2].indexOf(".");
+            }
+            sumStr = String.format("%." + (dec - 1) + "f", sum);
             System.out.println("The sum is: " + sumStr);
+        }
+        else
+        {
+            System.out.println("The sum is: " + (int) sum);
+        }
+
+        
 
         printFooter(ucid, 1);
     }
