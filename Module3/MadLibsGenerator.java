@@ -1,6 +1,7 @@
 package Module3;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -48,15 +49,44 @@ public class MadLibsGenerator extends BaseClass {
         // Step 8: Print out the full file sentence by sentence
 
         // load a random story file
+        int storyNum = (int) (Math.random() * 4) + 1;
+        String storyFile = "story" + storyNum + ".txt";
+        File story = new File(folder + "/" + storyFile);
 
         // parse the story lines
+        try 
+        {
+            Scanner reader = new Scanner(story);
+            while (reader.hasNextLine())
+            {
+                lines.add(reader.nextLine());
+            } 
+        }
+        catch (IOException e)
+        {
+            System.out.println(e);
+        }
 
         // iterate through the lines
-
-        // prompt the user for each placeholder (note: there may be more than one
-        // placeholder in a line)
-
-        // apply the update to the same collection slot
+        for (int i = 0; i < lines.size(); i++)
+        {
+            String[] words = lines.get(i).split(" ");
+            for (String word : words)
+            {
+                // prompt the user for each placeholder (note: there may be more than one 
+                // placeholder in a line)
+                if (word.contains("<"))
+                {
+                    System.out.println("Please enter a(n): " + word.replaceAll("[^a-zA-Z]", " ").trim());
+                    String input = scanner.nextLine();
+                    
+                    // apply the update to the same collection slot
+                    lines.set(i, lines.get(i).replace(word.replaceAll("[^\\w<>]", ""), input));
+                }
+            }
+        }
+       
+        
 
         // End edits
         System.out.println("\nYour Completed Mad Libs Story:\n");
