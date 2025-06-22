@@ -130,6 +130,15 @@ public class Server {
     protected synchronized void handleMessage(ServerThread sender, String text) {
         relay(sender, text);
     }
+
+    // ctr26 06-21-2025
+    // Copied structure of the other command messages and added the custom logic to handle the coinflips
+    protected synchronized void handleFlip(ServerThread sender)
+    {
+        String result = "tails";
+        if ((int) (Math.random() * 2) == 1) result = "heads";
+        relay(sender, String.format("Client[%d] flipped a coin and got %s", sender.getClientId(), result));
+    }
     // end handle actions
 
     public static void main(String[] args) {

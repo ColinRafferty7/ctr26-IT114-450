@@ -202,6 +202,13 @@ public class ServerThread extends Thread {
                         wasCommand = true;
                         break;
                     // added more cases/breaks as needed for other commands
+                    // ctr26 06-21-2025
+                    // Added a new case for the flip input sent from client
+                    // The case calls the handleFlip function in the server class where the rest of the logic is handled
+                    case "flip":
+                        server.handleFlip(this);
+                        wasCommand = true;
+                        break;
                     default:
                         break;
                 }
