@@ -135,6 +135,13 @@ public class Client {
             String[] commandData = { Constants.COMMAND_TRIGGER, "pm", text };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
+        } else if (text.startsWith("/shuffle"))
+        {
+            // ctr26 06-23-2025
+            // Added a new else if statement for the shuffle command and sends the input to server thread
+            String[] commandData = { Constants.COMMAND_TRIGGER, "shuffle", text };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
         }
         return wasCommand;
     }

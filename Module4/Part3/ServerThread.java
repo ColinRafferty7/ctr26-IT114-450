@@ -219,6 +219,24 @@ public class ServerThread extends Thread {
                         server.handlePM(this, receiverId, pMessage);
                         wasCommand = true;
                         break;
+                    case "shuffle":
+                        String[] shuffleInput = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length)).split(" ");
+                        String[] temp = (String.join(" ", Arrays.copyOfRange(shuffleInput, 1, shuffleInput.length))).split("");
+                        String shuffledMessage = "";
+                        for (String character : temp)
+                        {
+                            if ((int) (Math.random() * 2) == 1)
+                            {
+                                shuffledMessage = shuffledMessage + character;
+                            }
+                            else
+                            {
+                                shuffledMessage = character + shuffledMessage;
+                            }
+                        }
+                        server.handleShuffle(this, shuffledMessage);
+                        wasCommand = true;
+                        break;
                     default:
                         break;
                 }

@@ -150,6 +150,11 @@ public class Server {
         receiver.sendToClient(finalMessage);
         sender.sendToClient(finalMessage);
     }
+    protected synchronized void handleShuffle(ServerThread sender, String message)
+    {
+        String finalMessage = String.format("Shuffled from %d: %s", sender.getClientId(), message);
+        relay(sender, finalMessage);
+    }
     // end handle actions
 
     public static void main(String[] args) {
