@@ -139,6 +139,17 @@ public class Server {
         if ((int) (Math.random() * 2) == 1) result = "heads";
         relay(sender, String.format("Client[%d] flipped a coin and got %s", sender.getClientId(), result));
     }
+
+    // ctr26 06-23-2025
+    // Added a new method that takes the entered thread id and gets the serverthread value from the hash map
+    // The final message is constructed and sent out to both the sending client and receiving client
+    protected synchronized void handlePM(ServerThread sender, long receiverId, String message)
+    {
+        ServerThread receiver = connectedClients.get(receiverId);
+        String finalMessage = String.format("PM from %d: %s", sender.getClientId(), message);
+        receiver.sendToClient(finalMessage);
+        sender.sendToClient(finalMessage);
+    }
     // end handle actions
 
     public static void main(String[] args) {

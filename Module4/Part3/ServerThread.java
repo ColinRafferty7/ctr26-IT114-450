@@ -209,6 +209,16 @@ public class ServerThread extends Thread {
                         server.handleFlip(this);
                         wasCommand = true;
                         break;
+                    // ctr26 06-23-2025
+                    // Added a new case that splits the command data into an array of the entire user input
+                    // The receivers client id is then extracted and the rest of the data is kept as the message string and sent to the server
+                    case "pm":
+                        String[] text = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length)).split(" ");
+                        String pMessage = String.join(" ", Arrays.copyOfRange(text, 2, text.length));
+                        long receiverId = Long.parseLong(text[1]);
+                        server.handlePM(this, receiverId, pMessage);
+                        wasCommand = true;
+                        break;
                     default:
                         break;
                 }

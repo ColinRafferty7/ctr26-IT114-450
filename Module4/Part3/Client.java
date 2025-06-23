@@ -123,7 +123,16 @@ public class Client {
             wasCommand = true;
         } else if (text.startsWith("/flip"))
         {
+            // ctr26 06-21-2025
+            // Added a new else if that checks for the flip command and sends the input to server thread
             String[] commandData = { Constants.COMMAND_TRIGGER, "flip", text };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
+        } else if (text.startsWith("/pm"))
+        {
+            // ctr26 06-21-2025
+            // Added a new else if statement for the pm command and sends the input to server thread
+            String[] commandData = { Constants.COMMAND_TRIGGER, "pm", text };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
         }
