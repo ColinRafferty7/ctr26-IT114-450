@@ -219,6 +219,9 @@ public class ServerThread extends Thread {
                         server.handlePM(this, receiverId, pMessage);
                         wasCommand = true;
                         break;
+                    // ctr26 06-23-2025
+                    // Added new case that takes the input and shuffles it
+                    // The shuffle function goes through each character in the input and adds it onto either the start or end of final message
                     case "shuffle":
                         String[] shuffleInput = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length)).split(" ");
                         String[] temp = (String.join(" ", Arrays.copyOfRange(shuffleInput, 1, shuffleInput.length))).split("");

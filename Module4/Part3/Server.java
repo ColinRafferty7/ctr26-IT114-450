@@ -150,6 +150,8 @@ public class Server {
         receiver.sendToClient(finalMessage);
         sender.sendToClient(finalMessage);
     }
+    // ctr26 06-23-2025
+    // Added new method that takes the shuffled string and relaysys it in the desired format
     protected synchronized void handleShuffle(ServerThread sender, String message)
     {
         String finalMessage = String.format("Shuffled from %d: %s", sender.getClientId(), message);
