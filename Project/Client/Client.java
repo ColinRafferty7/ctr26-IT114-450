@@ -120,6 +120,11 @@ public enum Client {
         if (text.startsWith(Constants.COMMAND_TRIGGER)) {
             text = text.substring(1); // remove the /
             // System.out.println("Checking command: " + text);
+            // ctr26 07/07/2025
+            // Uses isConnection boolean to verify that the input is a valid connection
+            // Checks if client has name
+            // Processes input into proper format
+            // Connects client to server
             if (isConnection("/" + text)) {
                 if (myUser.getClientName() == null || myUser.getClientName().isEmpty()) {
                     System.out.println(
@@ -133,7 +138,12 @@ public enum Client {
                 connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
                 sendClientName(myUser.getClientName());// sync follow-up data (handshake)
                 wasCommand = true;
-            } else if (text.startsWith(Command.NAME.command)) {
+            } 
+            // ctr26 07/07/2025
+            // Checks if the client enters the /name command
+            // Processes the input into the correct format
+            // Sets the name by using the client's user object
+            else if (text.startsWith(Command.NAME.command)) {
                 text = text.replace(Command.NAME.command, "").trim();
                 if (text == null || text.length() == 0) {
                     System.out.println(TextFX.colorize("This command requires a name as an argument", Color.RED));
@@ -160,7 +170,14 @@ public enum Client {
                 text = text.replace(Command.REVERSE.command, "").trim();
                 sendReverse(text);
                 wasCommand = true;
-            } else if (text.startsWith(Command.CREATE_ROOM.command)) {
+            } else if (text.startsWith(Command.MESSAGE.command)) {
+                text = text.replace(Command.MESSAGE.command, "").trim();
+                sendMessage(text);
+                wasCommand = true;
+            } 
+            // ctr26 07/07/2025
+            // Each room command uses the sendRoomAction function to execute command
+            else if (text.startsWith(Command.CREATE_ROOM.command)) {
                 text = text.replace(Command.CREATE_ROOM.command, "").trim();
                 if (text == null || text.length() == 0) {
                     System.out.println(TextFX.colorize("This command requires a room name as an argument", Color.RED));
@@ -195,6 +212,8 @@ public enum Client {
      * @param roomAction (join, leave, create)
      * @throws IOException
      */
+    // ctr26 07/07/2025
+    // Depending on the room action, a payload is created and sent to the server to execute the action
     private void sendRoomAction(String roomName, RoomAction roomAction) throws IOException {
         Payload payload = new Payload();
         payload.setMessage(roomName);

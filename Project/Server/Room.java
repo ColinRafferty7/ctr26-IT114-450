@@ -8,9 +8,6 @@ import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 import Project.Exceptions.DuplicateRoomException;
 import Project.Exceptions.RoomNotFoundException;
-import Project.Server.BaseServerThread;
-import Project.Server.Server;
-import Project.Server.ServerThread;
 
 public class Room implements AutoCloseable {
     private final String name;// unique name of the Room

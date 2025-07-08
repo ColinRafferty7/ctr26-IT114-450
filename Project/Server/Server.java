@@ -5,7 +5,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
-import Project.Server.Room;
 import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 import Project.Exceptions.DuplicateRoomException;
@@ -36,6 +35,8 @@ public enum Server {
     /**
      * Gracefully disconnect clients
      */
+    // ctr26 07/07/2025
+    // Disconnects every client from every room without killing client programs
     private void shutdown() {
         try {
             // chose removeIf over forEach to avoid potential
@@ -56,13 +57,20 @@ public enum Server {
         info("Listening on port " + this.port);
         // Simplified client connection loop
         try (ServerSocket serverSocket = new ServerSocket(port)) {
+            // ctr26 07/07/2025
+            // Upon server startup, the lobby is created as the defaualt room for all clients
             createRoom(Room.LOBBY);// create the first room (lobby)
+            // ctr26 07/07/2025
+            // This while loop will keep the server listening for clients trying to connect
+            // Once a connection has been established, the thread will be started
             while (isRunning) {
                 info("Waiting for next client");
                 Socket incomingClient = serverSocket.accept(); // blocking action, waits for a client connection
                 info("Client connected");
                 // wrap socket in a ServerThread, pass a callback to notify the Server when
                 // they're initialized
+                // ctr26 07/07/2025
+                // Intiallizes each thread with individual client data allowing for multiple connections
                 ServerThread serverThread = new ServerThread(incomingClient, this::onServerThreadInitialized);
                 // start the thread (typically an external entity manages the lifecycle and we
                 // don't have the thread start itself)
@@ -108,6 +116,8 @@ public enum Server {
      * @return true if it was created and false if it wasn't
      * @throws DuplicateRoomException
      */
+    // ctr26 07/07/2025
+    // Checks to see if room already exists before creating new room
     protected void createRoom(String name) throws DuplicateRoomException {
         final String nameCheck = name.toLowerCase();
         if (rooms.containsKey(nameCheck)) {
@@ -126,20 +136,26 @@ public enum Server {
      * @throws RoomNotFoundException
      * 
      */
+    // ctr26 07/07/2025
     protected void joinRoom(String name, ServerThread client) throws RoomNotFoundException {
         final String nameCheck = name.toLowerCase();
+        // Throws exception if the room does not exist
         if (!rooms.containsKey(nameCheck)) {
             throw new RoomNotFoundException(String.format("Room %s wasn't found", name));
         }
         Room currentRoom = client.getCurrentRoom();
+        // Removes client from current room in order to add to next room
         if (currentRoom != null) {
             info("Removing client from previous Room " + currentRoom.getName());
             currentRoom.removeClient(client);
         }
+        // References the room and runs the command to add the client
         Room next = rooms.get(nameCheck);
         next.addClient(client);
     }
 
+    // ctr26 07/07/2025
+    // Removes the entered room from the hashmap
     protected void removeRoom(Room room) {
         rooms.remove(room.getName().toLowerCase());
         info(String.format("Removed room %s", room.getName()));

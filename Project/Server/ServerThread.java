@@ -142,13 +142,13 @@ public class ServerThread extends BaseServerThread {
 
                 break;
             case DISCONNECT:
-                //currentRoom.handleDisconnect(this);
+                currentRoom.handleDisconnect(this);
                 break;
             case MESSAGE:
-                //currentRoom.handleMessage(this, incoming.getMessage());
+                currentRoom.handleMessage(this, incoming.getMessage());
                 break;
             case REVERSE:
-                //currentRoom.handleReverseText(this, incoming.getMessage());
+                currentRoom.handleReverseText(this, incoming.getMessage());
                 break;
             case ROOM_CREATE:
                 currentRoom.handleCreateRoom(this, incoming.getMessage());
