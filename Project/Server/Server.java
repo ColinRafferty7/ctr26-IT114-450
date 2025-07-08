@@ -5,7 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
-import Project.Common.Room;
+import Project.Server.Room;
 import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 import Project.Exceptions.DuplicateRoomException;
