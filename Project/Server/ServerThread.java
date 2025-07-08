@@ -7,7 +7,6 @@ import java.util.function.Consumer;
 import Project.Common.ConnectionPayload;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
-import Project.Server.Room;
 import Project.Common.RoomAction;
 import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
