@@ -163,7 +163,6 @@ public enum Client {
                 String message = TextFX.colorize("Known clients:\n", Color.CYAN);
                 LoggerUtil.INSTANCE.info(TextFX.colorize("Known clients:", Color.CYAN));
                 message += String.join("\n", knownClients.values().stream()
-                        .map(c -> String.format("%s %s %s",
                         .map(c -> String.format("%s %s %s %s",
                                 c.getDisplayName(),
                                 c.getClientId() == myUser.getClientId() ? " (you)" : "",
@@ -441,7 +440,7 @@ public enum Client {
     // Start process*() methods
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
-        System.out.println("Ready status turn for everyone");
+        System.out.println("Turn status reset for everyone");
     }
 
     private void processTurn(Payload payload) {
