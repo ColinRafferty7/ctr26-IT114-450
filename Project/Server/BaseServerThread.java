@@ -34,7 +34,7 @@ public abstract class BaseServerThread extends Thread {
      * 
      * @param room
      */
-    public void setCurrentRoom(Room room) {
+    protected void setCurrentRoom(Room room) {
         if (room == null) {
             throw new NullPointerException("Room argument can't be null");
         }

@@ -3,16 +3,29 @@ package Project.Server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
-import Project.Common.TextFX;
+import Project.Common.LoggerUtil;
+
 import Project.Common.TextFX.Color;
+import Project.Common.TextFX;
 import Project.Exceptions.DuplicateRoomException;
 import Project.Exceptions.RoomNotFoundException;
 
 public enum Server {
     INSTANCE; // Singleton instance
 
+    {
+        // statically initialize the server-side LoggerUtil
+        LoggerUtil.LoggerConfig config = new LoggerUtil.LoggerConfig();
+        config.setFileSizeLimit(2048 * 1024); // 2MB
+        config.setFileCount(1);
+        config.setLogLocation("server.log");
+        // Set the logger configuration
+        LoggerUtil.INSTANCE.setConfig(config);
+    }
     private int port = 3000;
     // connected clients
     // Use ConcurrentHashMap for thread-safe client management
@@ -22,7 +35,7 @@ public enum Server {
     private long nextClientId = 0;
 
     private void info(String message) {
-        System.out.println(TextFX.colorize(String.format("Server: %s", message), Color.YELLOW));
+        LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Server: %s", message), Color.YELLOW));
     }
 
     private Server() {
@@ -35,8 +48,6 @@ public enum Server {
     /**
      * Gracefully disconnect clients
      */
-    // ctr26 07/07/2025
-    // Disconnects every client from every room without killing client programs
     private void shutdown() {
         try {
             // chose removeIf over forEach to avoid potential
@@ -57,20 +68,13 @@ public enum Server {
         info("Listening on port " + this.port);
         // Simplified client connection loop
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            // ctr26 07/07/2025
-            // Upon server startup, the lobby is created as the defaualt room for all clients
             createRoom(Room.LOBBY);// create the first room (lobby)
-            // ctr26 07/07/2025
-            // This while loop will keep the server listening for clients trying to connect
-            // Once a connection has been established, the thread will be started
             while (isRunning) {
                 info("Waiting for next client");
                 Socket incomingClient = serverSocket.accept(); // blocking action, waits for a client connection
                 info("Client connected");
                 // wrap socket in a ServerThread, pass a callback to notify the Server when
                 // they're initialized
-                // ctr26 07/07/2025
-                // Intiallizes each thread with individual client data allowing for multiple connections
                 ServerThread serverThread = new ServerThread(incomingClient, this::onServerThreadInitialized);
                 // start the thread (typically an external entity manages the lifecycle and we
                 // don't have the thread start itself)
@@ -78,10 +82,9 @@ public enum Server {
                 // Note: We don't yet add the ServerThread reference to our connectedClients map
             }
         } catch (DuplicateRoomException e) {
-            System.err.println(TextFX.colorize("Lobby already exists (this shouldn't happen)", Color.RED));
+            LoggerUtil.INSTANCE.severe(TextFX.colorize("Lobby already exists (this shouldn't happen)", Color.RED));
         } catch (IOException e) {
-            System.err.println(TextFX.colorize("Error accepting connection", Color.RED));
-            e.printStackTrace();
+            LoggerUtil.INSTANCE.severe(TextFX.colorize("Error accepting connection", Color.RED), e);
         } finally {
             info("Closing server socket");
         }
@@ -116,8 +119,6 @@ public enum Server {
      * @return true if it was created and false if it wasn't
      * @throws DuplicateRoomException
      */
-    // ctr26 07/07/2025
-    // Checks to see if room already exists before creating new room
     protected void createRoom(String name) throws DuplicateRoomException {
         final String nameCheck = name.toLowerCase();
         if (rooms.containsKey(nameCheck)) {
@@ -136,26 +137,36 @@ public enum Server {
      * @throws RoomNotFoundException
      * 
      */
-    // ctr26 07/07/2025
     protected void joinRoom(String name, ServerThread client) throws RoomNotFoundException {
         final String nameCheck = name.toLowerCase();
-        // Throws exception if the room does not exist
         if (!rooms.containsKey(nameCheck)) {
             throw new RoomNotFoundException(String.format("Room %s wasn't found", name));
         }
         Room currentRoom = client.getCurrentRoom();
-        // Removes client from current room in order to add to next room
         if (currentRoom != null) {
             info("Removing client from previous Room " + currentRoom.getName());
             currentRoom.removeClient(client);
         }
-        // References the room and runs the command to add the client
         Room next = rooms.get(nameCheck);
         next.addClient(client);
     }
 
-    // ctr26 07/07/2025
-    // Removes the entered room from the hashmap
+    /**
+     * Lists all rooms that partially match the given String
+     * 
+     * @param roomQuery
+     * @return
+     */
+    protected List<String> listRooms(String roomQuery) {
+        final String nameCheck = roomQuery.toLowerCase();
+        return rooms.values().stream()
+                .filter(room -> room.getName().toLowerCase().contains(nameCheck))// find partially matched rooms
+                .map(room -> room.getName())// map room to String (name)
+                .limit(10) // limit to 10 results
+                .sorted() // sort the results alphabetically
+                .collect(Collectors.toList()); // return a mutable list
+    }
+
     protected void removeRoom(Room room) {
         rooms.remove(room.getName().toLowerCase());
         info(String.format("Removed room %s", room.getName()));
@@ -203,7 +214,7 @@ public enum Server {
     }
 
     public static void main(String[] args) {
-        System.out.println("Server Starting");
+        LoggerUtil.INSTANCE.info("Server Starting");
         Server server = Server.INSTANCE;
         int port = 3000;
         try {
@@ -213,7 +224,7 @@ public enum Server {
             // will default to the defined value prior to the try/catch
         }
         server.start(port);
-        System.out.println("Server Stopped");
+        LoggerUtil.INSTANCE.warning("Server Stopped");
     }
 
 }
