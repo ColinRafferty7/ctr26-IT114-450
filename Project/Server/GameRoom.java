@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
+import Project.Common.CardType;
 import Project.Common.TimedEvent;
 import Project.Exceptions.MissingCurrentPlayerException;
 import Project.Exceptions.NotPlayersTurnException;
@@ -25,6 +26,8 @@ public class GameRoom extends BaseGameRoom {
     private List<ServerThread> turnOrder = new ArrayList<>();
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
     private int round = 0;
+
+    private Deck deck;
 
     public GameRoom(String name) {
         super(name);
@@ -71,7 +74,7 @@ public class GameRoom extends BaseGameRoom {
     }
 
     private void startTurnTimer() {
-        turnTimer = new TimedEvent(30, () -> onTurnEnd());
+        turnTimer = new TimedEvent(300, () -> onTurnEnd());
         turnTimer.setTickCallback((time) -> System.out.println("Turn Time: " + time));
     }
 
@@ -93,8 +96,26 @@ public class GameRoom extends BaseGameRoom {
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
         setTurnOrder();
         round = 0;
+
+        deck = new Deck();
+        dealCards();
+
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
+    }
+
+    protected void dealCards()
+    {
+        LoggerUtil.INSTANCE.info("GameRoom: " + turnOrder.size());
+        turnOrder.forEach(player -> {
+            player.clearHand();
+            for (int i = 0; i < 7; i++)
+            {
+                player.addCard(deck.draw());
+            }
+            player.checkForPair();
+            player.sendCurrentHand();
+        });
     }
 
     /** {@inheritDoc} */
@@ -120,6 +141,7 @@ public class GameRoom extends BaseGameRoom {
         try {
             ServerThread currentPlayer = getNextPlayer();
             relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            LoggerUtil.INSTANCE.info("Client Id: " + currentPlayer.user.toString());
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
 
             e.printStackTrace();
@@ -329,6 +351,60 @@ public class GameRoom extends BaseGameRoom {
                 currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
                 return;
             }
+            currentUser.setTookTurn(true);
+            // TODO handle example text possibly or other turn related intention from client
+            sendTurnStatus(currentUser, currentUser.didTakeTurn());
+            // finished processing the turn
+            onTurnEnd();
+        } catch (NotPlayersTurnException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (NotReadyException e) {
+            // The check method already informs the currentUser
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PlayerNotFoundException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PhaseMismatchException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID,
+                    "You can only take a turn during the IN_PROGRESS phase");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        }
+    }
+
+    protected void handleSendFish(ServerThread currentUser, long targetId, CardType targetCard) {
+        // check if the client is in the room
+        try {
+            checkPlayerInRoom(currentUser);
+            checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
+            checkCurrentPlayer(currentUser.getClientId());
+            checkIsReady(currentUser);
+            if (currentUser.didTakeTurn()) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
+                return;
+            }
+
+            for (ServerThread targetUser : turnOrder)
+            {
+                if (targetUser.getClientId() == targetId)
+                {
+                    if (targetUser.getHand().contains(targetCard))
+                    {
+                        targetUser.removeCard(targetCard);
+                        targetUser.sendCurrentHand();
+                        currentUser.addCard(targetCard);
+                    }
+                    else 
+                    {
+                        currentUser.addCard(deck.draw());
+                    }
+                    currentUser.checkForPair(); 
+                    currentUser.sendCurrentHand();
+                }
+            }
+
             currentUser.setTookTurn(true);
             // TODO handle example text possibly or other turn related intention from client
             sendTurnStatus(currentUser, currentUser.didTakeTurn());

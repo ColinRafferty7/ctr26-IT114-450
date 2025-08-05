@@ -5,12 +5,15 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.smartcardio.Card;
 
 import Project.Common.Command;
 import Project.Common.ConnectionPayload;
@@ -20,6 +23,10 @@ import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
 import Project.Common.ReadyPayload;
+import Project.Common.FishPayload;
+import Project.Common.CardsPayload;
+import Project.Common.CardType;
+import Project.Common.PointsPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
@@ -217,12 +224,57 @@ public enum Client {
 
                 sendDoTurn(text);
                 wasCommand = true;
+            } else if (text.startsWith(Command.TESTFISH.command))
+            {
+                text = text.replace(Command.TESTFISH.command, "").trim();
+                sendTestFish(text);
+                wasCommand = true;
+            } else if (text.startsWith(Command.HAND.command))
+            {
+                showHand();
+                wasCommand = true;
+            } else if (text.startsWith(Command.TARGET.command))
+            {
+                text = text.replace(Command.TARGET.command, "").trim();
+                sendTarget(text);
+                wasCommand = true;
             }
         }
         return wasCommand;
     }
 
     // Start Send*() methods
+    private void sendTarget(String text) throws IOException
+    {
+        String[] data = text.split(" ");
+        String targetName = String.join(" ", Arrays.copyOfRange(data, 0, data.length - 1));
+        CardType targetCard = CardType.fromString(data[data.length - 1]);
+        if (myUser.getHand().contains(targetCard))
+        {
+            knownClients.values().forEach( client -> {
+                if (client.getClientName().equals(targetName))
+                {
+                    long targetId = client.getClientId();
+                    FishPayload fp = new FishPayload(targetId, targetCard);
+                    fp.setPayloadType(PayloadType.FISH);
+                    try 
+                    {
+                        sendToServer(fp);
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                    
+                }
+            });
+        }
+        else
+        {
+            LoggerUtil.INSTANCE.info("You can only request cards you have.");
+        }
+    }
+
     private void sendDoTurn(String text) throws IOException {
         // NOTE for now using ReadyPayload as it has the necessary properties
         // An actual turn may include other data for your project
@@ -231,6 +283,22 @@ public enum Client {
         rp.setReady(true); // <- technically not needed as we'll use the payload type as a trigger
         rp.setMessage(text);
         sendToServer(rp);
+    }
+
+    private void sendTestFish(String text) throws IOException
+    {
+        PointsPayload fp = new PointsPayload(Integer.parseInt(text));
+        sendToServer(fp);
+    }
+
+    private void showHand() throws IOException
+    {
+        StringBuilder sb = new StringBuilder();
+        LoggerUtil.INSTANCE.info("ClientId: " + myUser.toString());
+        for (CardType card : myUser.getHand()) {
+            sb.append(card.getCardType()).append(System.lineSeparator());
+        }
+        LoggerUtil.INSTANCE.info(TextFX.colorize("Your current hand:" + System.lineSeparator() + sb, Color.GREEN));
     }
 
     /**
@@ -430,14 +498,31 @@ public enum Client {
                 // note no data necessary as this is just a trigger
                 processResetTurn();
                 break;
+            case PayloadType.CARDS:
+                processCardsSync(payload);
+                break;
             default:
-                LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
+                LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type" + payload.getPayloadType(), Color.YELLOW));
                 break;
 
         }
     }
 
     // Start process*() methods
+    private void processCardsSync(Payload payload)
+    {
+        CardsPayload cp = (CardsPayload) payload;
+        myUser.syncCards(cp.getCards());
+        try 
+        {
+            showHand();
+        }
+        catch (Exception e)
+        {
+
+        }
+    }
+
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
         System.out.println("Turn status reset for everyone");

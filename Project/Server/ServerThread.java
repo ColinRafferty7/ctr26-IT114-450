@@ -8,10 +8,14 @@ import Project.Common.TextFX.Color;
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
+import Project.Common.CardType;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
 import Project.Common.ReadyPayload;
+import Project.Common.FishPayload;
+import Project.Common.CardsPayload;
+import Project.Common.PointsPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
@@ -184,6 +188,13 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(payload);
     }
 
+    protected boolean sendCurrentHand()
+    {
+        CardsPayload cp = new CardsPayload(getHand());
+        cp.setPayloadType(PayloadType.CARDS);
+        return sendToClient(cp);
+    }
+
     /**
      * Sends a message to the client
      * 
@@ -197,6 +208,14 @@ public class ServerThread extends BaseServerThread {
         payload.setMessage(message);
         payload.setClientId(clientId);
         return sendToClient(payload);
+    }
+
+    protected boolean sendHand(long clientId, List<CardType> cards)
+    {
+        CardsPayload cp = new CardsPayload(cards);
+        cp.setPayloadType(PayloadType.CARDS);
+        cp.setClientId(clientId);
+        return sendToClient(cp);
     }
 
     // End Send*() Methods
@@ -247,6 +266,14 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
+            case FISH:
+                try {
+                    FishPayload fp = (FishPayload) incoming;
+                    ((GameRoom) currentRoom).handleSendFish(this, fp.getTargetId(), fp.getCardType());
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
+                }
+                break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
@@ -268,6 +295,31 @@ public class ServerThread extends BaseServerThread {
 
     protected void setTookTurn(boolean tookTurn) {
         this.user.setTookTurn(tookTurn);
+    }
+
+    protected void addCard(CardType card)
+    {
+        this.user.addCard(card);
+    }
+
+    protected void removeCard(CardType card)
+    {
+        this.user.removeCard(card);
+    }
+
+    protected void clearHand()
+    {
+        this.user.clearHand();
+    }
+
+    protected void checkForPair()
+    {
+        this.user.checkForPair();
+    }
+
+    protected List<CardType> getHand()
+    {
+        return this.user.getHand();
     }
 
     @Override

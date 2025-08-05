@@ -1,10 +1,19 @@
 package Project.Common;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import javax.smartcardio.Card;
+
 public class User {
     private long clientId = Constants.DEFAULT_CLIENT_ID;
     private String clientName;
     private boolean isReady = false;
     private boolean tookTurn = false;
+    private List<CardType> cards = new ArrayList<>();
+    private int points;
 
     /**
      * @return the clientId
@@ -65,5 +74,56 @@ public class User {
      */
     public void setTookTurn(boolean tookTurn) {
         this.tookTurn = tookTurn;
+    }
+
+    public void addCard(CardType card)
+    {
+        cards.add(card);
+    }
+
+    public void removeCard(CardType card)
+    {
+        cards.remove(card);
+    }
+
+    public void clearHand()
+    {
+        cards.clear();
+    }
+
+    public List<CardType> getHand()
+    {
+        return new ArrayList<>(cards);
+    }
+
+    public void syncCards(List<CardType> newCards) {
+        cards.clear();
+        if (newCards == null) {
+            throw new IllegalArgumentException("Card list cannot be null");
+        }
+        for (CardType card : newCards) {
+            if (card == null) {
+                throw new IllegalArgumentException("Card cannot be null");
+            }
+            cards.add(card);
+        }
+    }
+
+    public void checkForPair()
+    {
+        for (int cardOne = 0; cardOne < cards.size(); cardOne++)
+        {
+            for (int cardTwo = cardOne + 1; cardTwo < cards.size(); cardTwo++)
+            {
+                if (cards.get(cardOne) == cards.get(cardTwo))
+                {
+                    points++;
+                    cards.remove(cardOne);
+                    cards.remove(cardTwo - 1);
+                    cardOne -= 2;
+                    cardOne = Math.max(0, cardOne);
+                }
+            }
+        }
     }
 }
