@@ -1,14 +1,14 @@
-package Project.Server;
+package NDFF.Server;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-import Project.Common.Constants;
-import Project.Common.LoggerUtil;
-import Project.Common.RoomAction;
-import Project.Common.TextFX;
-import Project.Common.TextFX.Color;
-import Project.Exceptions.DuplicateRoomException;
-import Project.Exceptions.RoomNotFoundException;
+import NDFF.Common.Constants;
+import NDFF.Common.LoggerUtil;
+import NDFF.Common.RoomAction;
+import NDFF.Common.TextFX;
+import NDFF.Common.TextFX.Color;
+import NDFF.Exceptions.DuplicateRoomException;
+import NDFF.Exceptions.RoomNotFoundException;
 
 public class Room implements AutoCloseable {
     private final String name;// unique name of the Room
@@ -273,6 +273,5 @@ public class Room implements AutoCloseable {
     protected synchronized void handleMessage(ServerThread sender, String text) {
         relay(sender, text);
     }
-
     // end handle methods
 }

@@ -1,11 +1,10 @@
-package Project.Client;
+package NDFF.Client;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
@@ -13,25 +12,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.smartcardio.Card;
-
-import Project.Common.Command;
-import Project.Common.ConnectionPayload;
-import Project.Common.Constants;
-import Project.Common.LoggerUtil;
-import Project.Common.Payload;
-import Project.Common.PayloadType;
-import Project.Common.Phase;
-import Project.Common.ReadyPayload;
-import Project.Common.FishPayload;
-import Project.Common.CardsPayload;
-import Project.Common.CardType;
-import Project.Common.PointsPayload;
-import Project.Common.RoomAction;
-import Project.Common.RoomResultPayload;
-import Project.Common.TextFX;
-import Project.Common.User;
-import Project.Common.TextFX.Color;
+import NDFF.Common.Cell;
+import NDFF.Common.Command;
+import NDFF.Common.Constants;
+import NDFF.Common.Grid;
+import NDFF.Common.LoggerUtil;
+import NDFF.Common.Phase;
+import NDFF.Common.RoomAction;
+import NDFF.Common.TextFX;
+import NDFF.Common.User;
+import NDFF.Common.Payloads.ConnectionPayload;
+import NDFF.Common.Payloads.CoordPayload;
+import NDFF.Common.Payloads.FishPayload;
+import NDFF.Common.Payloads.Payload;
+import NDFF.Common.Payloads.PayloadType;
+import NDFF.Common.Payloads.ReadyPayload;
+import NDFF.Common.Payloads.RoomResultPayload;
+import NDFF.Common.TextFX.Color;
 
 /**
  * Demoing bi-directional communication between client and server in a
@@ -59,6 +56,7 @@ public enum Client {
     private final ConcurrentHashMap<Long, User> knownClients = new ConcurrentHashMap<Long, User>();
     private User myUser = new User();
     private Phase currentPhase = Phase.READY;
+    private Grid grid = new Grid();
 
     private void error(String message) {
         LoggerUtil.INSTANCE.severe(TextFX.colorize(String.format("%s", message), Color.RED));
@@ -170,11 +168,12 @@ public enum Client {
                 String message = TextFX.colorize("Known clients:\n", Color.CYAN);
                 LoggerUtil.INSTANCE.info(TextFX.colorize("Known clients:", Color.CYAN));
                 message += String.join("\n", knownClients.values().stream()
-                        .map(c -> String.format("%s %s %s %s",
+                        .map(c -> String.format("%s %s %s %s %s",
                                 c.getDisplayName(),
                                 c.getClientId() == myUser.getClientId() ? " (you)" : "",
                                 c.isReady() ? "[x]" : "[ ]",
-                                c.didTakeTurn() ? "[T]" : "[ ]"))
+                                c.didTakeTurn() ? "[T]" : "[ ]",
+                                c.getPoints()))
                         .toList());
                 LoggerUtil.INSTANCE.info(message);
                 wasCommand = true;
@@ -224,55 +223,48 @@ public enum Client {
 
                 sendDoTurn(text);
                 wasCommand = true;
-            } else if (text.startsWith(Command.TESTFISH.command))
-            {
-                text = text.replace(Command.TESTFISH.command, "").trim();
-                sendTestFish(text);
+            } else if (text.startsWith(Command.CAST.command)) {
+                // Note: This is just an example command, you can replace it with your own logic
+                text = text.replace(Command.CAST.command, "").trim();
+                if (text == null || text.length() == 0) {
+                    LoggerUtil.INSTANCE
+                            .warning(TextFX.colorize("This command requires a cast message as an argument", Color.RED));
+                    return true;
+                }
+                String[] coords = text.split(",");
+                if (coords.length != 2) {
+                    LoggerUtil.INSTANCE.warning(TextFX.colorize("Usage: /cast <x>,<y>", Color.RED));
+                    return true;
+                }
+                try {
+                    int x = Integer.parseInt(coords[0].trim());
+                    int y = Integer.parseInt(coords[1].trim());
+                    // check if coordinates are within bounds
+                    if (grid.isValidCoordinate(x, y)) {
+                        LoggerUtil.INSTANCE
+                                .info(TextFX.colorize(String.format("Casting at (%d, %d)", x, y), Color.GREEN));
+                        sendCast(x, y);
+                    } else {
+                        LoggerUtil.INSTANCE.warning(TextFX.colorize("Coordinates out of bounds", Color.RED));
+                    }
+                } catch (NumberFormatException e) {
+                    LoggerUtil.INSTANCE
+                            .warning(TextFX.colorize("Coordinates must be integers. Usage: /cast <x>,<y>", Color.RED));
+                    return true;
+                }
                 wasCommand = true;
-            } else if (text.startsWith(Command.HAND.command))
-            {
-                showHand();
-                wasCommand = true;
-            } else if (text.startsWith(Command.TARGET.command))
-            {
-                text = text.replace(Command.TARGET.command, "").trim();
-                sendTarget(text);
-                wasCommand = true;
+            } else {
+                LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown command: " + text, Color.RED));
             }
         }
         return wasCommand;
     }
 
     // Start Send*() methods
-    private void sendTarget(String text) throws IOException
-    {
-        String[] data = text.split(" ");
-        String targetName = String.join(" ", Arrays.copyOfRange(data, 0, data.length - 1));
-        CardType targetCard = CardType.fromString(data[data.length - 1]);
-        if (myUser.getHand().contains(targetCard))
-        {
-            knownClients.values().forEach( client -> {
-                if (client.getClientName().equals(targetName))
-                {
-                    long targetId = client.getClientId();
-                    FishPayload fp = new FishPayload(targetId, targetCard);
-                    fp.setPayloadType(PayloadType.FISH);
-                    try 
-                    {
-                        sendToServer(fp);
-                    }
-                    catch (Exception e)
-                    {
-                        e.printStackTrace();
-                    }
-                    
-                }
-            });
-        }
-        else
-        {
-            LoggerUtil.INSTANCE.info("You can only request cards you have.");
-        }
+    private void sendCast(int x, int y) throws IOException {
+        CoordPayload cp = new CoordPayload(x, y);
+        cp.setPayloadType(PayloadType.CAST);
+        sendToServer(cp);
     }
 
     private void sendDoTurn(String text) throws IOException {
@@ -285,23 +277,6 @@ public enum Client {
         sendToServer(rp);
     }
 
-    private void sendTestFish(String text) throws IOException
-    {
-        PointsPayload fp = new PointsPayload(Integer.parseInt(text));
-        sendToServer(fp);
-    }
-
-    private void showHand() throws IOException
-    {
-        StringBuilder sb = new StringBuilder();
-        LoggerUtil.INSTANCE.info("ClientId: " + myUser.toString());
-        for (CardType card : myUser.getHand()) {
-            sb.append(card.getCardType()).append(System.lineSeparator());
-            LoggerUtil.INSTANCE.info(card.getCardType());
-        }
-        LoggerUtil.INSTANCE.info(TextFX.colorize("Your current hand:" + System.lineSeparator() + sb, Color.GREEN));
-    }
-
     /**
      * Sends the client's intent to be ready.
      * Can also be used to toggle the ready state if coded on the server-side
@@ -310,8 +285,7 @@ public enum Client {
      */
     private void sendReady() throws IOException {
         ReadyPayload rp = new ReadyPayload();
-        // rp.setReady(true); // <- technically not needed as we'll use the payload type
-        // as a trigger
+        rp.setReady(true); // <- technically not needed as we'll use the payload type as a trigger
         sendToServer(rp);
     }
 
@@ -441,7 +415,7 @@ public enum Client {
                 e.printStackTrace();
             }
         } catch (Exception e) {
-            LoggerUtil.INSTANCE.severe("Unexpected error in listenToServer()", e);
+            LoggerUtil.INSTANCE.severe("Unexpected error in listenToServer", e);
         } finally {
             closeServerConnection();
         }
@@ -449,6 +423,7 @@ public enum Client {
     }
 
     private void processPayload(Payload payload) {
+        LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Received payload: %s", payload), Color.CYAN));
         switch (payload.getPayloadType()) {
             case CLIENT_CONNECT:// unused
                 break;
@@ -499,8 +474,9 @@ public enum Client {
                 // note no data necessary as this is just a trigger
                 processResetTurn();
                 break;
-            case PayloadType.CARDS:
-                processCardsSync(payload);
+            case PayloadType.FISH:
+                processFishResult(payload);
+                break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
                 break;
@@ -509,23 +485,51 @@ public enum Client {
     }
 
     // Start process*() methods
-    private void processCardsSync(Payload payload)
-    {
-        CardsPayload cp = (CardsPayload) payload;
-        myUser.syncCards(cp.getCards());
-        try 
-        {
-            showHand();
+    private void processFishResult(Payload payload) {
+        if (!(payload instanceof FishPayload)) {
+            error("Invalid payload subclass for processFishResult");
+            return;
         }
-        catch (Exception e)
-        {
+        FishPayload fp = (FishPayload) payload;
+        // use -1 clientId for reset
+        if (fp.getClientId() == Constants.DEFAULT_CLIENT_ID) {
+            // reset all fish counts
+            knownClients.values().forEach(cp -> cp.resetFish());
+            System.out.println("Fish counts reset for everyone");
+            return;
+        }
+        // handle normal fish result
+        if (!knownClients.containsKey(fp.getClientId())) {
+            LoggerUtil.INSTANCE.severe(String.format("Received fish result for client id %s who is not known",
+                    fp.getClientId()));
+            return;
+        }
+        User cp = knownClients.get(fp.getClientId());
+        // null fish type is used as a notification of an empty cell
+        if (fp.getFishQuantity() != null && fp.getFishQuantity().getFishType() != null) {
+            cp.addFish(fp.getFishQuantity().getFishType(), fp.getFishQuantity().getQuantity());
+        }
 
+        // update grid and display
+        // NOTE: Client-side shows known catches in the grid vs server-side that shows
+        // remaining fish
+        Cell cell = grid.getCell(fp.getX(), fp.getY());
+        if (cell == null) {
+            LoggerUtil.INSTANCE
+                    .warning(String.format("Cell at (%d, %d) is null, cannot set fish count", fp.getX(), fp.getY()));
+            return;
         }
+        if (fp.getFishQuantity() == null || fp.getFishQuantity().getFishType() == null) {
+            cell.clearFish();
+        } else {
+            cell.changeFishCount(fp.getFishQuantity().getFishType(), fp.getFishQuantity().getQuantity());
+        }
+        LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Current grid: " + grid), Color.PURPLE));
     }
 
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
-        System.out.println("Turn status reset for everyone");
+        System.out.println("Ready status turn for everyone");
     }
 
     private void processTurn(Payload payload) {
@@ -551,8 +555,19 @@ public enum Client {
     }
 
     private void processPhase(Payload payload) {
+
         currentPhase = Enum.valueOf(Phase.class, payload.getMessage());
         System.out.println(TextFX.colorize("Current phase is " + currentPhase.name(), Color.YELLOW));
+        if (currentPhase == Phase.READY) {
+            // treat this as a session reset
+            knownClients.values().forEach(user -> {
+                user.resetSession();
+            });
+            grid.reset();
+        } else if (currentPhase == Phase.IN_PROGRESS) {
+            // switched from ready to in-progress, init local grid
+            grid.generate(5, 5, false);
+        }
     }
 
     private void processResetReady() {
@@ -595,7 +610,7 @@ public enum Client {
         }
         LoggerUtil.INSTANCE.info(TextFX.colorize("Room Results:", Color.PURPLE));
         LoggerUtil.INSTANCE.info(
-                String.join(System.lineSeparator(), rooms));
+                String.join("\n", rooms));
     }
 
     private void processClientData(Payload payload) {

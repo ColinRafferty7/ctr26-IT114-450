@@ -1,18 +1,31 @@
-package Project.Common;
+package NDFF.Common;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
-import javax.smartcardio.Card;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class User {
     private long clientId = Constants.DEFAULT_CLIENT_ID;
     private String clientName;
     private boolean isReady = false;
     private boolean tookTurn = false;
-    private List<CardType> cards = new ArrayList<>();
+    private ConcurrentHashMap<FishType, Integer> fishQuantities = new ConcurrentHashMap<>();
+
+    public int getPoints() {
+        // FishType has a points value
+        return fishQuantities.entrySet().stream()
+                .mapToInt(entry -> entry.getKey().getPointValue() * entry.getValue())
+                .sum();
+    }
+
+    public void addFish(FishType fishType, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
+        fishQuantities.merge(fishType, quantity, Integer::sum);
+    }
+
+    public void resetFish() {
+        fishQuantities.clear();
+    }
 
     /**
      * @return the clientId
@@ -54,11 +67,25 @@ public class User {
         this.isReady = isReady;
     }
 
+    /**
+     * Resets the user state, including clientId, clientName, isReady, tookTurn, and
+     * fish. All state is cleared to default values.
+     */
     public void reset() {
         this.clientId = Constants.DEFAULT_CLIENT_ID;
         this.clientName = null;
         this.isReady = false;
         this.tookTurn = false;
+        this.resetFish();
+    }
+
+    /**
+     * Resets the session state for the user.
+     */
+    public void resetSession() {
+        this.isReady = false;
+        this.tookTurn = false;
+        this.resetFish();
     }
 
     /**
@@ -73,38 +100,5 @@ public class User {
      */
     public void setTookTurn(boolean tookTurn) {
         this.tookTurn = tookTurn;
-    }
-
-    public void addCard(CardType card)
-    {
-        cards.add(card);
-    }
-
-    public void removeCard(CardType card)
-    {
-        cards.remove(card);
-    }
-
-    public void clearHand()
-    {
-        cards.clear();
-    }
-
-    public List<CardType> getHand()
-    {
-        return new ArrayList<>(cards);
-    }
-
-    public void syncCards(List<CardType> newCards) {
-        cards.clear();
-        if (newCards == null) {
-            throw new IllegalArgumentException("Card list cannot be null");
-        }
-        for (CardType card : newCards) {
-            if (card == null) {
-                throw new IllegalArgumentException("Card cannot be null");
-            }
-            cards.add(card);
-        }
     }
 }

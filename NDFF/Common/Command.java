@@ -1,4 +1,4 @@
-package Project.Common;
+package NDFF.Common;
 
 import java.util.HashMap;
 
@@ -16,9 +16,7 @@ public enum Command {
     LIST_ROOMS("listrooms"),
     READY("ready"),
     EXAMPLE_TURN("exampleturn"),
-    TESTFISH("testfish"),
-    TARGET("target"),
-    HAND("hand"),;
+    CAST("cast"),;
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {

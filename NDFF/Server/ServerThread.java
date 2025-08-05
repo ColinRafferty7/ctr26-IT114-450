@@ -1,24 +1,25 @@
-package Project.Server;
+package NDFF.Server;
 
 import java.net.Socket;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-import Project.Common.TextFX.Color;
-import Project.Common.ConnectionPayload;
-import Project.Common.Constants;
-import Project.Common.LoggerUtil;
-import Project.Common.CardType;
-import Project.Common.Payload;
-import Project.Common.PayloadType;
-import Project.Common.Phase;
-import Project.Common.ReadyPayload;
-import Project.Common.FishPayload;
-import Project.Common.CardsPayload;
-import Project.Common.PointsPayload;
-import Project.Common.RoomAction;
-import Project.Common.RoomResultPayload;
-import Project.Common.TextFX;
+
+import NDFF.Common.Constants;
+import NDFF.Common.CatchData;
+import NDFF.Common.FishType;
+import NDFF.Common.LoggerUtil;
+import NDFF.Common.Phase;
+import NDFF.Common.RoomAction;
+import NDFF.Common.TextFX;
+import NDFF.Common.Payloads.ConnectionPayload;
+import NDFF.Common.Payloads.CoordPayload;
+import NDFF.Common.Payloads.FishPayload;
+import NDFF.Common.Payloads.Payload;
+import NDFF.Common.Payloads.PayloadType;
+import NDFF.Common.Payloads.ReadyPayload;
+import NDFF.Common.Payloads.RoomResultPayload;
+import NDFF.Common.TextFX.Color;
 
 /**
  * A server-side representation of a single client
@@ -32,7 +33,6 @@ public class ServerThread extends BaseServerThread {
      * 
      * @param message
      */
-    @Override
     protected void info(String message) {
         LoggerUtil.INSTANCE
                 .info(TextFX.colorize(String.format("Thread[%s]: %s", this.getClientId(), message), Color.CYAN));
@@ -59,6 +59,13 @@ public class ServerThread extends BaseServerThread {
     }
 
     // Start Send*() Methods
+
+    public boolean sendCaughtFishUpdate(long clientId, int x, int y, CatchData caughtFish) {
+        FishPayload fp = new FishPayload(x, y, caughtFish);
+        fp.setClientId(clientId);
+        return sendToClient(fp);
+    }
+
     public boolean sendResetTurnStatus() {
         ReadyPayload rp = new ReadyPayload();
         rp.setPayloadType(PayloadType.RESET_TURN);
@@ -188,17 +195,9 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(payload);
     }
 
-    protected boolean sendCurrentHand()
-    {
-        CardsPayload cp = new CardsPayload(getHand());
-        cp.setPayloadType(PayloadType.CARDS);
-        return sendToClient(cp);
-    }
-
     /**
      * Sends a message to the client
      * 
-     * @param clientId who it's from
      * @param message
      * @return true for successful send
      */
@@ -208,14 +207,6 @@ public class ServerThread extends BaseServerThread {
         payload.setMessage(message);
         payload.setClientId(clientId);
         return sendToClient(payload);
-    }
-
-    protected boolean sendHand(long clientId, List<CardType> cards)
-    {
-        CardsPayload cp = new CardsPayload(cards);
-        cp.setPayloadType(PayloadType.CARDS);
-        cp.setClientId(clientId);
-        return sendToClient(cp);
     }
 
     // End Send*() Methods
@@ -266,12 +257,13 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
-            case FISH:
+            case CAST:
                 try {
-                    FishPayload fp = (FishPayload) incoming;
-                    ((GameRoom) currentRoom).handleSendFish(this, fp.getTargetId(), fp.getCardType());
+                    // cast to GameRoom as the subclass will handle all Game logic
+                    CoordPayload cp = (CoordPayload) incoming;
+                    ((GameRoom) currentRoom).handleCastAction(this, cp.getX(), cp.getY());
                 } catch (Exception e) {
-                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a cast");
                 }
                 break;
             default:
@@ -297,24 +289,12 @@ public class ServerThread extends BaseServerThread {
         this.user.setTookTurn(tookTurn);
     }
 
-    protected void addCard(CardType card)
-    {
-        this.user.addCard(card);
+    protected void addFish(FishType fishType, int quantity) {
+        this.user.addFish(fishType, quantity);
     }
 
-    protected void removeCard(CardType card)
-    {
-        this.user.removeCard(card);
-    }
-
-    protected void clearHand()
-    {
-        this.user.clearHand();
-    }
-
-    protected List<CardType> getHand()
-    {
-        return this.user.getHand();
+    protected int getPoints() {
+        return this.user.getPoints();
     }
 
     @Override

@@ -1,12 +1,12 @@
-package Project.Server;
+package NDFF.Server;
 
-import Project.Common.Constants;
-import Project.Common.LoggerUtil;
-import Project.Common.Phase;
-import Project.Common.TimedEvent;
-import Project.Exceptions.NotReadyException;
-import Project.Exceptions.PhaseMismatchException;
-import Project.Exceptions.PlayerNotFoundException;
+import NDFF.Common.Constants;
+import NDFF.Common.LoggerUtil;
+import NDFF.Common.Phase;
+import NDFF.Common.TimedEvent;
+import NDFF.Exceptions.NotReadyException;
+import NDFF.Exceptions.PhaseMismatchException;
+import NDFF.Exceptions.PlayerNotFoundException;
 
 /**
  * No edits should be needed in this file, this prepares the core logic for the
@@ -122,7 +122,7 @@ public abstract class BaseGameRoom extends Room {
             resetReadyTimer();
         }
         if (readyTimer == null) {
-            readyTimer = new TimedEvent(5, () -> {
+            readyTimer = new TimedEvent(30, () -> {
                 // callback to trigger when ready expires
                 checkReadyStatus();
             });
