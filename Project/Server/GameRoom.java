@@ -113,6 +113,7 @@ public class GameRoom extends BaseGameRoom {
             {
                 player.addCard(deck.draw());
             }
+            player.checkForPair();
             player.sendCurrentHand();
         });
     }
@@ -394,8 +395,13 @@ public class GameRoom extends BaseGameRoom {
                         targetUser.removeCard(targetCard);
                         targetUser.sendCurrentHand();
                         currentUser.addCard(targetCard);
-                        currentUser.sendCurrentHand();
                     }
+                    else 
+                    {
+                        currentUser.addCard(deck.draw());
+                    }
+                    currentUser.checkForPair(); 
+                    currentUser.sendCurrentHand();
                 }
             }
 

@@ -297,7 +297,6 @@ public enum Client {
         LoggerUtil.INSTANCE.info("ClientId: " + myUser.toString());
         for (CardType card : myUser.getHand()) {
             sb.append(card.getCardType()).append(System.lineSeparator());
-            LoggerUtil.INSTANCE.info(card.getCardType());
         }
         LoggerUtil.INSTANCE.info(TextFX.colorize("Your current hand:" + System.lineSeparator() + sb, Color.GREEN));
     }
@@ -501,8 +500,9 @@ public enum Client {
                 break;
             case PayloadType.CARDS:
                 processCardsSync(payload);
+                break;
             default:
-                LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
+                LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type" + payload.getPayloadType(), Color.YELLOW));
                 break;
 
         }

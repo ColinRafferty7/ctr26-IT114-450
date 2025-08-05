@@ -312,6 +312,11 @@ public class ServerThread extends BaseServerThread {
         this.user.clearHand();
     }
 
+    protected void checkForPair()
+    {
+        this.user.checkForPair();
+    }
+
     protected List<CardType> getHand()
     {
         return this.user.getHand();

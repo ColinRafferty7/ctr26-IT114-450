@@ -13,6 +13,7 @@ public class User {
     private boolean isReady = false;
     private boolean tookTurn = false;
     private List<CardType> cards = new ArrayList<>();
+    private int points;
 
     /**
      * @return the clientId
@@ -105,6 +106,24 @@ public class User {
                 throw new IllegalArgumentException("Card cannot be null");
             }
             cards.add(card);
+        }
+    }
+
+    public void checkForPair()
+    {
+        for (int cardOne = 0; cardOne < cards.size(); cardOne++)
+        {
+            for (int cardTwo = cardOne + 1; cardTwo < cards.size(); cardTwo++)
+            {
+                if (cards.get(cardOne) == cards.get(cardTwo))
+                {
+                    points++;
+                    cards.remove(cardOne);
+                    cards.remove(cardTwo - 1);
+                    cardOne -= 2;
+                    cardOne = Math.max(0, cardOne);
+                }
+            }
         }
     }
 }
