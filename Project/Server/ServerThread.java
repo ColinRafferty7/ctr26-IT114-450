@@ -360,9 +360,9 @@ public class ServerThread extends BaseServerThread {
         this.user.clearHand();
     }
 
-    protected void checkForPair()
+    protected int checkForPair()
     {
-        this.user.checkForPair();
+        return this.user.checkForPair();
     }
 
     protected List<CardType> getHand()

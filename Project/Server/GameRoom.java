@@ -122,17 +122,15 @@ public class GameRoom extends BaseGameRoom {
         onRoundStart();
     }
 
-    protected void dealCards()
-    {
+    protected void dealCards() {
         LoggerUtil.INSTANCE.info("GameRoom: " + turnOrder.size());
         turnOrder.forEach(player -> {
             player.clearHand();
-            for (int i = 0; i < 7; i++)
-            {
+            for (int i = 0; i < 7; i++) {
                 player.addCard(deck.draw());
             }
-            player.checkForPair();
-            player.sendCurrentHand();
+            updatePoints(player);
+            sendHand(player);
         });
     }
 
@@ -279,6 +277,23 @@ public class GameRoom extends BaseGameRoom {
     }
 
     // end send data to ServerThread(s)
+
+    private void sendHand(ServerThread player)
+    {
+        player.sendCurrentHand();
+        sendGameEvent("Your hand: " + player.getHand().toString(), new ArrayList<Long>(List.of(player.getClientId())));
+    }
+
+    private void updatePoints(ServerThread player)
+    {
+        int points = player.checkForPair();
+        sendGameEvent(String.format("%s %s", player.getDisplayName(),
+        points > 0 ? "gained a point" : "didn't gain a point"));
+        if (points > 0) {
+            player.changePoints(points);
+            sendPlayerPoints(player); 
+        }
+    }
 
     // misc methods
     private void resetTurnStatus() {
@@ -440,15 +455,6 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
 
-            // example points
-            int points = new Random().nextInt(4) == 3 ? 1 : 0;
-            sendGameEvent(String.format("%s %s", currentUser.getDisplayName(),
-                    points > 0 ? "gained a point" : "didn't gain a point"));
-            if (points > 0) {
-                currentUser.changePoints(points);
-                sendPlayerPoints(currentUser);
-            }
-
             for (ServerThread targetUser : turnOrder)
             {
                 if (targetUser.getClientId() == targetId)
@@ -456,15 +462,15 @@ public class GameRoom extends BaseGameRoom {
                     if (targetUser.getHand().contains(targetCard))
                     {
                         targetUser.removeCard(targetCard);
-                        targetUser.sendCurrentHand();
+                        sendHand(targetUser);
                         currentUser.addCard(targetCard);
                     }
                     else 
                     {
                         currentUser.addCard(deck.draw());
                     }
-                    currentUser.checkForPair(); 
-                    currentUser.sendCurrentHand();
+                    updatePoints(currentUser);
+                    sendHand(currentUser);
                 }
             }
 
