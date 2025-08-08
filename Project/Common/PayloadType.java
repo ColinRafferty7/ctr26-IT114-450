@@ -30,4 +30,5 @@ public enum PayloadType {
        CARDS,
        CLIENT_LIST,
        HOST,
+       WILDCARD,
 }

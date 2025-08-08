@@ -27,6 +27,8 @@ public abstract class BaseGameRoom extends Room {
 
     protected int numDecks = 1;
 
+    protected boolean includeJokers = false;
+
     public BaseGameRoom(String name) {
         super(name);
     }
@@ -294,22 +296,20 @@ public abstract class BaseGameRoom extends Room {
     // end send data to ServerThread(s)
 
     // receive data from ServerThread (GameRoom specific)
-    protected void handleReady(ServerThread sender, String deckCount) {
+    protected void handleReady(ServerThread sender, String deckCount, boolean jokers) {
         try {
             // early exit checks
             checkPlayerInRoom(sender);
             checkCurrentPhase(sender, Phase.READY);
-
             try
             {
                 numDecks = Integer.parseInt(deckCount);
                 numDecks = Math.clamp(numDecks, 0, 10);
-            }
-            catch (Exception e)
+                includeJokers = jokers;
+            } catch (NumberFormatException e)
             {
                 numDecks = 1;
             }
-
             ServerThread sp = null;
             // option 1: simply just mark ready
             if (!allowToggleReady) {

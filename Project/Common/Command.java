@@ -18,7 +18,9 @@ public enum Command {
     EXAMPLE_TURN("exampleturn"),
     TESTFISH("testfish"),
     TARGET("target"),
-    HAND("hand"),;
+    HAND("hand"),
+    WILDCARD("wildcard"),
+    ;
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {

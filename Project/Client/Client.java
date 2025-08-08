@@ -281,7 +281,7 @@ public enum Client {
                 sendRoomAction(text, RoomAction.LIST);
                 wasCommand = true;
             } else if (text.equalsIgnoreCase(Command.READY.command)) {
-                sendReady("");
+                sendReady("", false);
                 wasCommand = true;
             } else if (text.startsWith(Command.EXAMPLE_TURN.command)) {
                 text = text.replace(Command.EXAMPLE_TURN.command, "").trim();
@@ -297,14 +297,33 @@ public enum Client {
                 text = text.replace(Command.TARGET.command, "").trim();
                 sendTarget(text);
                 wasCommand = true;
+            } else if (text.startsWith(Command.WILDCARD.command))
+            {
+                text = text.replace(Command.WILDCARD.command, "").trim();
+                sendWildcard(text);
+                wasCommand = true;
             }
         }
         return wasCommand;
     }
 
     // Start Send*() methods
+    public void sendWildcard(String text) throws IOException
+    {
+        CardType targetCard = CardType.fromString(text);
+        if (myUser.getHand().contains(targetCard) && myUser.getHand().contains(CardType._X))
+        {
+            FishPayload fp = new FishPayload(-2, targetCard);
+            fp.setPayloadType(PayloadType.WILDCARD);
+            sendToServer(fp);
+        }
+        else
+        {
+            LoggerUtil.INSTANCE.info("You must match your wildcard with a card you have.");
+        }
+    }
 
-        public void sendTarget(String text) throws IOException
+    public void sendTarget(String text) throws IOException
     {
         String[] data = text.split(" ");
         String targetName = String.join(" ", Arrays.copyOfRange(data, 0, data.length - 1));
@@ -361,8 +380,10 @@ public enum Client {
      * 
      * @throws IOException
      */
-    public void sendReady(String deckCount) throws IOException {
+    public void sendReady(String deckCount, boolean jokers) throws IOException {
         ReadyPayload rp = new ReadyPayload(deckCount);
+        LoggerUtil.INSTANCE.info("Jokers: " + jokers);
+        rp.setJokers(jokers);
         // rp.setReady(true); // <- technically not needed as we'll use the payload type
         // as a trigger
         sendToServer(rp);

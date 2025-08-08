@@ -7,6 +7,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JCheckBox;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
@@ -18,8 +19,11 @@ public class ReadyView extends JPanel implements IConnectionEvents {
 
     private final JTextField numDecks = new JTextField("1");
     private final JLabel decktext = new JLabel("Number of Decks: ");
+    private final JLabel toggletext = new JLabel("Include Joker?");
+    private final JCheckBox jokerToggle = new JCheckBox();
     private String deckCount;
     private JPanel content = new JPanel();
+    private boolean isHost = false;
     
 
     public ReadyView() {
@@ -33,7 +37,7 @@ public class ReadyView extends JPanel implements IConnectionEvents {
 
         readyButton.addActionListener(_ -> {
             try {
-                Client.INSTANCE.sendReady(numDecks.getText().trim());
+                Client.INSTANCE.sendReady(isHost ? numDecks.getText().trim() : "", jokerToggle.isSelected());
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
@@ -46,9 +50,11 @@ public class ReadyView extends JPanel implements IConnectionEvents {
     @Override
     public void roomCreator()
     {
-        LoggerUtil.INSTANCE.info("Recieved room");
         content.add(decktext);
         content.add(numDecks);
+        content.add(toggletext);
+        content.add(jokerToggle);
+        isHost = true;
     }
 
     public String getDeckCount()

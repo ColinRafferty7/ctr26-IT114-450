@@ -307,7 +307,8 @@ public class ServerThread extends BaseServerThread {
                 try {
                     // cast to GameRoom as the subclass will handle all Game logic
                     ReadyPayload rp = (ReadyPayload) incoming;
-                    ((GameRoom) currentRoom).handleReady(this, rp.getDeckCount());
+                    LoggerUtil.INSTANCE.info("ServerThread: " + rp.getJokers());
+                    ((GameRoom) currentRoom).handleReady(this, rp.getDeckCount(), rp.getJokers());
                 } catch (Exception e) {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
                 }
@@ -329,6 +330,14 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
+            case WILDCARD:
+                try {
+                    FishPayload fp = (FishPayload) incoming;
+                    ((GameRoom) currentRoom).handleWildcard(this, fp.getCardType());
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
+                }
+
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;

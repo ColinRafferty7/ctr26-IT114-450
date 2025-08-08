@@ -124,8 +124,8 @@ public class GameRoom extends BaseGameRoom {
         clientsInRoom.values().forEach( client -> {
             client.setPoints(0);
         });
-
-        deck = new Deck(numDecks);
+        LoggerUtil.INSTANCE.info("Include Jokers: " + includeJokers);
+        deck = new Deck(numDecks, includeJokers);
         dealCards();
         clientsInRoom.values().forEach( client -> {
             syncPlayerCards(client);
@@ -142,7 +142,7 @@ public class GameRoom extends BaseGameRoom {
             for (int i = 0; i < 7; i++) {
                 player.addCard(deck.draw());
             }
-            updatePoints(player);
+            updatePoints(player, false);
             sendHand(player);
         });
     }
@@ -341,9 +341,17 @@ public class GameRoom extends BaseGameRoom {
         player.sendCurrentHand(player.getClientId(), player.getHand());
     }
 
-    private void updatePoints(ServerThread player)
+    private void updatePoints(ServerThread player, boolean wildcard)
     {
-        int points = player.checkForPair();
+        int points;
+        if (wildcard)
+        {
+            points = 1;
+        }
+        else 
+        {
+            points = player.checkForPair();  
+        }
         sendGameEvent(String.format("%s %s", player.getDisplayName(),
         points > 0 ? "gained a point" : "didn't gain a point"));
         if (points > 0) {
@@ -538,11 +546,52 @@ public class GameRoom extends BaseGameRoom {
                         currentUser.addCard(deck.draw());
                         sendGameEvent("GO FISH!");
                     }
-                    updatePoints(currentUser);
+                    updatePoints(currentUser, false);
                     sendHand(targetUser);
                     sendHand(currentUser);
                 }
             }
+
+            currentUser.setTookTurn(true);
+            // TODO handle example text possibly or other turn related intention from client
+            sendTurnStatus(currentUser, currentUser.didTakeTurn());
+            // finished processing the turn
+            onTurnEnd();
+        } catch (NotPlayersTurnException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (NotReadyException e) {
+            // The check method already informs the currentUser
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PlayerNotFoundException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PhaseMismatchException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID,
+                    "You can only take a turn during the IN_PROGRESS phase");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        }
+    }
+
+    protected void handleWildcard(ServerThread currentUser, CardType card)
+    {
+        try {
+            checkPlayerInRoom(currentUser);
+            checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
+            checkCurrentPlayer(currentUser.getClientId());
+            checkIsReady(currentUser);
+            if (currentUser.didTakeTurn()) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
+                return;
+            }
+
+            sendGameEvent(currentUser.getClientName() + " used their wildcard!");
+            currentUser.removeCard(CardType._X);
+            currentUser.removeCard(card);
+            sendHand(currentUser);
+            updatePoints(currentUser, true);
 
             currentUser.setTookTurn(true);
             // TODO handle example text possibly or other turn related intention from client

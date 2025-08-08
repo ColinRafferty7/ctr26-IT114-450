@@ -3,7 +3,7 @@ package Project.Common;
 public class ReadyPayload extends Payload {
     private boolean isReady;
     private String deckCount;
-    
+    private boolean jokers;
 
     public ReadyPayload(String deckCount) {
         setPayloadType(PayloadType.READY);
@@ -21,6 +21,16 @@ public class ReadyPayload extends Payload {
     public String getDeckCount()
     {
         return deckCount;
+    }
+
+    public void setJokers(boolean jokers)
+    {
+        this.jokers = jokers;
+    }
+
+    public boolean getJokers()
+    {
+        return this.jokers;
     }
 
     @Override
