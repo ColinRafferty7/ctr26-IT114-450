@@ -103,7 +103,7 @@ public class ServerThread extends BaseServerThread {
     }
 
     public boolean sendResetTurnStatus() {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.RESET_TURN);
         return sendToClient(rp);
     }
@@ -115,7 +115,7 @@ public class ServerThread extends BaseServerThread {
     public boolean sendTurnStatus(long clientId, boolean didTakeTurn, boolean quiet) {
         // NOTE for now using ReadyPayload as it has the necessary properties
         // An actual turn may include other data for your project
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(quiet ? PayloadType.SYNC_TURN : PayloadType.TURN);
         rp.setClientId(clientId);
         rp.setReady(didTakeTurn);
@@ -130,7 +130,7 @@ public class ServerThread extends BaseServerThread {
     }
 
     public boolean sendResetReady() {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.RESET_READY);
         return sendToClient(rp);
     }
@@ -148,7 +148,7 @@ public class ServerThread extends BaseServerThread {
      * @return
      */
     public boolean sendReadyStatus(long clientId, boolean isReady, boolean quiet) {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setClientId(clientId);
         rp.setReady(isReady);
         if (quiet) {
@@ -241,6 +241,14 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(cp);
     }
 
+    protected boolean sendHost(long clientId, long hostId)
+    {
+        Payload p = new Payload();
+        p.setClientId(hostId);
+        p.setPayloadType(PayloadType.HOST);
+        return sendToClient(p);
+    }
+
     /**
      * Sends a message to the client
      * 
@@ -298,7 +306,8 @@ public class ServerThread extends BaseServerThread {
                 // no data needed as the intent will be used as the trigger
                 try {
                     // cast to GameRoom as the subclass will handle all Game logic
-                    ((GameRoom) currentRoom).handleReady(this);
+                    ReadyPayload rp = (ReadyPayload) incoming;
+                    ((GameRoom) currentRoom).handleReady(this, rp.getDeckCount());
                 } catch (Exception e) {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
                 }

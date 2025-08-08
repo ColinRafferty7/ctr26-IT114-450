@@ -68,7 +68,7 @@ public enum Server {
         info("Listening on port " + this.port);
         // Simplified client connection loop
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            createRoom(Room.LOBBY);// create the first room (lobby)
+            createRoom(Room.LOBBY, null);// create the first room (lobby)
             while (isRunning) {
                 info("Waiting for next client");
                 Socket incomingClient = serverSocket.accept(); // blocking action, waits for a client connection
@@ -119,12 +119,12 @@ public enum Server {
      * @return true if it was created and false if it wasn't
      * @throws DuplicateRoomException
      */
-    protected void createRoom(String name) throws DuplicateRoomException {
+    protected void createRoom(String name, ServerThread creator) throws DuplicateRoomException {
         final String nameCheck = name.toLowerCase();
         if (rooms.containsKey(nameCheck)) {
             throw new DuplicateRoomException(String.format("Room %s already exists", name));
         }
-        Room room = Room.LOBBY.equalsIgnoreCase(nameCheck) ? new Room(name) : new GameRoom(name);
+        Room room = Room.LOBBY.equalsIgnoreCase(nameCheck) ? new Room(name) : new GameRoom(name, creator);
         rooms.put(nameCheck, room);
         info(String.format("Created new Room %s", name));
     }

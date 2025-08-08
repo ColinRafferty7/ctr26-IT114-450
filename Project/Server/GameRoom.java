@@ -28,18 +28,21 @@ public class GameRoom extends BaseGameRoom {
     private TimedEvent turnTimer = null;
     private List<ServerThread> turnOrder = new ArrayList<>();
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
+    private ServerThread creator;
     private int round = 0;
 
     private Deck deck;
 
-    public GameRoom(String name) {
+    public GameRoom(String name, ServerThread creator) {
         super(name);
+        this.creator = creator;
     }
 
     /** {@inheritDoc} */
     @Override
     protected void onClientAdded(ServerThread sp) {
         // sync GameRoom state to new client
+        syncHost(sp);
 
         syncCurrentPhase(sp);
         // sync only what's necessary for the specific phase
@@ -122,7 +125,7 @@ public class GameRoom extends BaseGameRoom {
             client.setPoints(0);
         });
 
-        deck = new Deck();
+        deck = new Deck(numDecks);
         dealCards();
         clientsInRoom.values().forEach( client -> {
             syncPlayerCards(client);
@@ -176,6 +179,7 @@ public class GameRoom extends BaseGameRoom {
             ServerThread currentPlayer = getNextPlayer();
             // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            sendGameEvent("Cards left: " + deck.cardsLeft());
             showHands();
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
 
@@ -260,6 +264,18 @@ public class GameRoom extends BaseGameRoom {
                             String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
                     disconnect(serverUser);
                 }
+            }
+        });
+    }
+
+    private void syncHost(ServerThread sp)
+    {
+        clientsInRoom.values().forEach(serverUser -> {
+            boolean failedToSync = !sp.sendHost(serverUser.getClientId(), creator.getClientId());
+            if (failedToSync) {
+                LoggerUtil.INSTANCE.warning(
+                        String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                disconnect(serverUser);
             }
         });
     }
@@ -510,14 +526,17 @@ public class GameRoom extends BaseGameRoom {
             {
                 if (targetUser.getClientId() == targetId)
                 {
+                    sendGameEvent(currentUser.getClientName() + " asked " + targetUser.getClientName() + " for a " + targetCard.toString());
                     if (targetUser.getHand().contains(targetCard))
                     {
                         targetUser.removeCard(targetCard);
                         currentUser.addCard(targetCard);
+                        sendGameEvent(currentUser.getClientName() + " recieved a " + targetCard.toString() + " from " + targetUser.getClientName());
                     }
                     else 
                     {
                         currentUser.addCard(deck.draw());
+                        sendGameEvent("GO FISH!");
                     }
                     updatePoints(currentUser);
                     sendHand(targetUser);

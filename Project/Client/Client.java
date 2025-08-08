@@ -35,7 +35,6 @@ import Project.Common.FishPayload;
 import Project.Common.CardsPayload;
 import Project.Common.CardType;
 import Project.Common.PointsPayload;
-import Project.Common.ReadyPayload;
 import Project.Common.ClientListPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
@@ -73,6 +72,7 @@ public enum Client {
     // callback that updates the UI
     private static List<IClientEvents> events = new ArrayList<IClientEvents>();
     private String currentRoom;
+    private long hostId;
 
     private void error(String message) {
         LoggerUtil.INSTANCE.severe(TextFX.colorize(String.format("%s", message), Color.RED));
@@ -281,7 +281,7 @@ public enum Client {
                 sendRoomAction(text, RoomAction.LIST);
                 wasCommand = true;
             } else if (text.equalsIgnoreCase(Command.READY.command)) {
-                sendReady();
+                sendReady("");
                 wasCommand = true;
             } else if (text.startsWith(Command.EXAMPLE_TURN.command)) {
                 text = text.replace(Command.EXAMPLE_TURN.command, "").trim();
@@ -338,7 +338,7 @@ public enum Client {
     public void sendDoTurn(String text) throws IOException {
         // NOTE for now using ReadyPayload as it has the necessary properties
         // An actual turn may include other data for your project
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.TURN);
         rp.setReady(true); // <- technically not needed as we'll use the payload type as a trigger
         rp.setMessage(text);
@@ -361,8 +361,8 @@ public enum Client {
      * 
      * @throws IOException
      */
-    public void sendReady() throws IOException {
-        ReadyPayload rp = new ReadyPayload();
+    public void sendReady(String deckCount) throws IOException {
+        ReadyPayload rp = new ReadyPayload(deckCount);
         // rp.setReady(true); // <- technically not needed as we'll use the payload type
         // as a trigger
         sendToServer(rp);
@@ -568,6 +568,9 @@ public enum Client {
             case PayloadType.CLIENT_LIST:
                 processOrderList(payload);
                 break;
+            case PayloadType.HOST:
+                processHost(payload);
+                break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
                 break;
@@ -633,6 +636,15 @@ public enum Client {
         List<Long> clients = clp.getClients();
         passToUICallback(IRoomEvents.class, e -> e.sortUserList(clients));
         
+    }
+
+    private void processHost(Payload payload)
+    {
+        hostId = payload.getClientId();
+        if (myUser.getClientId() == hostId)
+        {
+            passToUICallback(IConnectionEvents.class, e -> e.roomCreator());
+        }
     }
 
     private void processPoints(Payload payload) {
@@ -817,6 +829,7 @@ public enum Client {
                     connectionPayload.getMessage(),
                     false,
                     true));
+
             return;
         }
         switch (connectionPayload.getPayloadType()) {
@@ -856,6 +869,7 @@ public enum Client {
                         connectionPayload.getMessage(),
                         true,
                         connectionPayload.getPayloadType() == PayloadType.SYNC_CLIENT));
+                LoggerUtil.INSTANCE.info("Client Id: " + myUser.getClientId() + " Host Id: " + hostId);
                 break;
             default:
                 error("Invalid payload type for processRoomAction");

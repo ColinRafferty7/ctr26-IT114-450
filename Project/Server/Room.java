@@ -243,7 +243,7 @@ public class Room implements AutoCloseable {
 
     public void handleCreateRoom(ServerThread sender, String roomName) {
         try {
-            Server.INSTANCE.createRoom(roomName);
+            Server.INSTANCE.createRoom(roomName, sender);
             Server.INSTANCE.joinRoom(roomName, sender);
         } catch (RoomNotFoundException e) {
             info("Room wasn't found (this shouldn't happen)");

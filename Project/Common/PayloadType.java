@@ -29,4 +29,5 @@ public enum PayloadType {
        FISH,
        CARDS,
        CLIENT_LIST,
+       HOST,
 }

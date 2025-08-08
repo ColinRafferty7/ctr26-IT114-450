@@ -231,4 +231,9 @@ public class ChatView extends JPanel implements IMessageEvents, IConnectionEvent
     {
         
     }
+
+    public void roomCreator()
+    {
+        LoggerUtil.INSTANCE.info("Recieved room");
+    }
 }

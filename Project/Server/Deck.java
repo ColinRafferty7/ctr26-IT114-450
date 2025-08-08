@@ -10,16 +10,16 @@ import Project.Common.CardType;
 public class Deck {
     private List<CardType> cards = new ArrayList<>();
 
-    public Deck()
+    public Deck(int numDecks)
     {
-        loadCards();
+        loadCards(numDecks);
     }
     
-    public void loadCards()
+    public void loadCards(int numDecks)
     {
         for (CardType card : CardType.values())
         {
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 4 * numDecks; i++)
             {
                 cards.add(card);
             }
@@ -37,6 +37,11 @@ public class Deck {
         CardType drawnCard = cards.get(0);
         cards.remove(0);
         return drawnCard;
+    }
+
+    public int cardsLeft()
+    {
+        return cards.size();
     }
 
     public String toString()

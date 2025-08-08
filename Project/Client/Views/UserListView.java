@@ -210,9 +210,7 @@ public class UserListView extends JPanel
                 }
 
             });
-        }
-        else 
-        {
+        } else {
             LoggerUtil.INSTANCE.info("Not working!");
         }
     }
@@ -241,35 +239,36 @@ public class UserListView extends JPanel
     }
 
     public void sortUserList(List<Long> order) {
-    SwingUtilities.invokeLater(() -> {
-        // Clear all components
-        userListArea.removeAll();
+        SwingUtilities.invokeLater(() -> {
+            userListArea.removeAll();
 
-        // Re-add UserListItems in new order
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.weightx = 1;
-        gbc.anchor = GridBagConstraints.NORTH;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 5, 5);
+            GridBagConstraints gbc = new GridBagConstraints();
+            gbc.gridx = 0;
+            gbc.weightx = 1;
+            gbc.anchor = GridBagConstraints.NORTH;
+            gbc.fill = GridBagConstraints.BOTH;
+            gbc.insets = new Insets(0, 0, 5, 5);
 
-        for (Long clientId : order) {
-            UserListItem item = userItemsMap.get(clientId);
-            if (item != null) {
-                gbc.gridy = userListArea.getComponentCount(); // maintain stacking order
-                userListArea.add(item, gbc);
+            for (Long clientId : order) {
+                UserListItem item = userItemsMap.get(clientId);
+                if (item != null) {
+                    gbc.gridy = userListArea.getComponentCount();
+                    userListArea.add(item, gbc);
+                }
             }
-        }
 
-        // Add vertical glue at the end to push items up
-        if (lastConstraints != null) {
-            userListArea.add(Box.createVerticalGlue(), lastConstraints);
-        }
+            if (lastConstraints != null) {
+                userListArea.add(Box.createVerticalGlue(), lastConstraints);
+            }
 
-        // Refresh the layout
-        userListArea.revalidate();
-        userListArea.repaint();
-    });
-}
+            userListArea.revalidate();
+            userListArea.repaint();
+        });
+    }
+    
+    public void roomCreator()
+    {
+        
+    }
 
 }
