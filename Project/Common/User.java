@@ -14,6 +14,7 @@ public class User {
     private boolean tookTurn = false;
     private List<CardType> cards = new ArrayList<>();
     private int points = 0;
+    private int cardCount = 0;
 
     /**
      * @return the points
@@ -27,6 +28,11 @@ public class User {
      */
     public void setPoints(int points) {
         this.points = points;
+    }
+
+    public void setCardCount(int cardCount)
+    {
+        this.cardCount = cardCount;
     }
 
     /**
@@ -75,6 +81,7 @@ public class User {
         this.isReady = false;
         this.tookTurn = false;
         this.points = 0;
+        this.cards = null;
     }
 
     /**

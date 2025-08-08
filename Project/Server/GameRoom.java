@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Common.CardType;
 import Project.Common.TimedEvent;
 import Project.Common.TimerType;
@@ -48,6 +49,8 @@ public class GameRoom extends BaseGameRoom {
             syncTurnStatus(sp); // turn/ready use the same visual process so ensure turn status is only called
                                 // outside of ready phase
             syncPlayerPoints(sp);
+
+            syncPlayerCards(sp);
         }
 
     }
@@ -115,8 +118,15 @@ public class GameRoom extends BaseGameRoom {
         setTurnOrder();
         round = 0;
 
+        clientsInRoom.values().forEach( client -> {
+            client.setPoints(0);
+        });
+
         deck = new Deck();
         dealCards();
+        clientsInRoom.values().forEach( client -> {
+            syncPlayerCards(client);
+        });
 
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
@@ -131,6 +141,13 @@ public class GameRoom extends BaseGameRoom {
             }
             updatePoints(player);
             sendHand(player);
+        });
+    }
+
+    protected void showHands()
+    {
+        clientsInRoom.values().forEach( client -> {
+            sendGameEvent("Your hand: " + client.getHand().toString(), new ArrayList<Long>(List.of(client.getClientId())));
         });
     }
 
@@ -159,6 +176,7 @@ public class GameRoom extends BaseGameRoom {
             ServerThread currentPlayer = getNextPlayer();
             // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            showHands();
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
 
             e.printStackTrace();
@@ -233,9 +251,32 @@ public class GameRoom extends BaseGameRoom {
         });
     }
 
+    private void syncPlayerCards(ServerThread incomingClient) {
+        clientsInRoom.values().forEach(serverUser -> {
+            if (serverUser.getClientId() != incomingClient.getClientId()) {
+                boolean failedToSync = !incomingClient.sendCurrentHand(serverUser.getClientId(), serverUser.getHand());
+                if (failedToSync) {
+                    LoggerUtil.INSTANCE.warning(
+                            String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                    disconnect(serverUser);
+                }
+            }
+        });
+    }
+
     private void sendPlayerPoints(ServerThread sp) {
         clientsInRoom.values().removeIf(spInRoom -> {
             boolean failedToSend = !spInRoom.sendPlayerPoints(sp.getClientId(), sp.getPoints());
+            if (failedToSend) {
+                removeClient(spInRoom);
+            }
+            return failedToSend;
+        });
+    }
+
+    private void sendPlayerCards(ServerThread sp) {
+        clientsInRoom.values().removeIf(spInRoom -> {
+            boolean failedToSend = !spInRoom.sendCurrentHand(sp.getClientId(), sp.getHand());
             if (failedToSend) {
                 removeClient(spInRoom);
             }
@@ -280,8 +321,8 @@ public class GameRoom extends BaseGameRoom {
 
     private void sendHand(ServerThread player)
     {
-        player.sendCurrentHand();
-        sendGameEvent("Your hand: " + player.getHand().toString(), new ArrayList<Long>(List.of(player.getClientId())));
+        syncPlayerCards(player);
+        player.sendCurrentHand(player.getClientId(), player.getHand());
     }
 
     private void updatePoints(ServerThread player)
@@ -310,6 +351,16 @@ public class GameRoom extends BaseGameRoom {
         turnOrder.clear();
         turnOrder = clientsInRoom.values().stream().filter(ServerThread::isReady).collect(Collectors.toList());
         Collections.shuffle(turnOrder);
+        List<Long> clientIds = turnOrder.stream().map(ServerThread::getClientId).collect(Collectors.toList());
+        sendTurnOrder(clientIds);
+
+    }
+
+    private void sendTurnOrder(List<Long> clients)
+    {
+        clientsInRoom.values().forEach( e -> {
+            e.sendTurnOrder(clients);
+        });
     }
 
     /**
@@ -462,7 +513,6 @@ public class GameRoom extends BaseGameRoom {
                     if (targetUser.getHand().contains(targetCard))
                     {
                         targetUser.removeCard(targetCard);
-                        sendHand(targetUser);
                         currentUser.addCard(targetCard);
                     }
                     else 
@@ -470,6 +520,7 @@ public class GameRoom extends BaseGameRoom {
                         currentUser.addCard(deck.draw());
                     }
                     updatePoints(currentUser);
+                    sendHand(targetUser);
                     sendHand(currentUser);
                 }
             }

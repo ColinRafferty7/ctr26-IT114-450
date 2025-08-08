@@ -1,12 +1,17 @@
 package Project.Client.Views;
 
+import java.awt.Insets;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JEditorPane;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
+
+import Project.Common.LoggerUtil;
 
 /**
  * UserListItem represents a user entry in the user list.
@@ -15,6 +20,7 @@ public class UserListItem extends JPanel {
     private final JEditorPane textContainer;
     private final JPanel turnIndicator;
     private final JEditorPane pointsPanel;
+    private final JEditorPane cardsPanel;
     private final String displayName; // store original name for future features that require formatting changes
 
     /**
@@ -38,8 +44,12 @@ public class UserListItem extends JPanel {
 
         // Second line: indicator + points
         JPanel rowPanel = new JPanel();
-        rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+        rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.Y_AXIS));
         rowPanel.setOpaque(false);
+
+        JPanel columnPanel = new JPanel();
+        columnPanel.setLayout(new BoxLayout(columnPanel, BoxLayout.Y_AXIS));
+        columnPanel.setOpaque(false);
 
         turnIndicator = new JPanel();
         turnIndicator.setPreferredSize(new Dimension(10, 10));
@@ -57,8 +67,16 @@ public class UserListItem extends JPanel {
         pointsPanel.setBackground(new Color(0, 0, 0, 0));
         rowPanel.add(pointsPanel);
 
+        cardsPanel = new JEditorPane("text/html", "");
+        cardsPanel.setEditable(false);
+        cardsPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
+        cardsPanel.setOpaque(false);
+        cardsPanel.setBackground(new Color(0, 0, 0, 0));
+        rowPanel.add(cardsPanel);
+
         add(rowPanel);
         setPoints(-1);
+        setCards(-1);
     }
 
     /**
@@ -93,12 +111,30 @@ public class UserListItem extends JPanel {
      */
     public void setPoints(int points) {
         if (points < 0) {
-            pointsPanel.setText("0");
+            pointsPanel.setText("Points: 0");
             pointsPanel.setVisible(false);
         } else {
-            pointsPanel.setText(Integer.toString(points));
+            pointsPanel.setText("Points: " + Integer.toString(points));
             if (!pointsPanel.isVisible()) {
                 pointsPanel.setVisible(true);
+            }
+        }
+        repaint();
+    }
+
+    /**
+     * Sets the points display for this user.
+     * 
+     * @param cards the number of points, or <0 to hide
+     */
+    public void setCards(int cards) {
+        if (cards < 0) {
+            cardsPanel.setText("Cards: 0");
+            cardsPanel.setVisible(false);
+        } else {
+            cardsPanel.setText("Cards: " + Integer.toString(cards));
+            if (!cardsPanel.isVisible()) {
+                cardsPanel.setVisible(true);
             }
         }
         repaint();

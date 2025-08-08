@@ -18,6 +18,7 @@ import Project.Common.ReadyPayload;
 import Project.Common.FishPayload;
 import Project.Common.CardsPayload;
 import Project.Common.PointsPayload;
+import Project.Common.ClientListPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
@@ -77,6 +78,14 @@ public class ServerThread extends BaseServerThread {
 
     public boolean sendGameEvent(String str) {
         return sendMessage(Constants.GAME_EVENT_CHANNEL, str);
+    }
+
+    public boolean sendTurnOrder(List<Long> clients)
+    {
+        ClientListPayload clp = new ClientListPayload(clients);
+        clp.setClientId(getClientId());
+        clp.setPayloadType(PayloadType.CLIENT_LIST);
+        return sendToClient(clp);
     }
 
     /**
@@ -224,10 +233,11 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(payload);
     }
 
-    protected boolean sendCurrentHand()
+    protected boolean sendCurrentHand(long clientId, List<CardType> cards)
     {
-        CardsPayload cp = new CardsPayload(getHand());
+        CardsPayload cp = new CardsPayload(cards);
         cp.setPayloadType(PayloadType.CARDS);
+        cp.setClientId(clientId);
         return sendToClient(cp);
     }
 
@@ -368,6 +378,11 @@ public class ServerThread extends BaseServerThread {
     protected List<CardType> getHand()
     {
         return this.user.getHand();
+    }
+
+    protected int getCardCount()
+    {
+        return this.user.getHand().size();
     }
 
     @Override

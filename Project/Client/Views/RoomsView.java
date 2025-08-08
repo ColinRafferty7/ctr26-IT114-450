@@ -242,4 +242,9 @@ public class RoomsView extends JPanel implements IRoomEvents {
     public void onRoomAction(long clientId, String roomName, boolean isJoin, boolean isQuiet) {
         // unused
     }
+
+    public void sortUserList(List<Long> order)
+    {
+        
+    }
 }

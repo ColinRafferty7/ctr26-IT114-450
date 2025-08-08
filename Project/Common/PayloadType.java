@@ -28,4 +28,5 @@ public enum PayloadType {
        POINTS, // syncs points data
        FISH,
        CARDS,
+       CLIENT_LIST,
 }

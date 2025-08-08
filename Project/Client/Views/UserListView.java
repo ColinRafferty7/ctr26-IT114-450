@@ -18,6 +18,7 @@ import javax.swing.border.EmptyBorder;
 import Project.Client.Client;
 import Project.Client.Interfaces.IConnectionEvents;
 import Project.Client.Interfaces.IPointsEvent;
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Client.Interfaces.IReadyEvent;
 import Project.Client.Interfaces.IRoomEvents;
 import Project.Client.Interfaces.ITurnEvent;
@@ -28,7 +29,7 @@ import Project.Common.LoggerUtil;
  * UserListView represents a UI component that displays a list of users.
  */
 public class UserListView extends JPanel
-        implements IConnectionEvents, IRoomEvents, IReadyEvent, IPointsEvent, ITurnEvent {
+        implements IConnectionEvents, IRoomEvents, IReadyEvent, IPointsEvent, ICardsEvent, ITurnEvent {
     private final JPanel userListArea;
     private final GridBagConstraints lastConstraints; // Keep track of the last constraints for the glue
     private final HashMap<Long, UserListItem> userItemsMap; // Maintain a map of client IDs to UserListItems
@@ -190,6 +191,33 @@ public class UserListView extends JPanel
     }
 
     @Override
+    public void onCardsUpdate(long clientId, int cards) {
+        if (clientId == Constants.DEFAULT_CLIENT_ID) {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    userItemsMap.values().forEach(u -> u.setCards(-1));// reset all
+                } catch (Exception e) {
+                    LoggerUtil.INSTANCE.severe("Error resetting user items", e);
+                }
+            });
+        } else if (userItemsMap.containsKey(clientId)) {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    LoggerUtil.INSTANCE.info("");
+                    userItemsMap.get(clientId).setCards(cards);
+                } catch (Exception e) {
+                    LoggerUtil.INSTANCE.severe("Error setting user item", e);
+                }
+
+            });
+        }
+        else 
+        {
+            LoggerUtil.INSTANCE.info("Not working!");
+        }
+    }
+
+    @Override
     public void onReceiveReady(long clientId, boolean isReady, boolean isQuiet) {
         if (clientId == Constants.DEFAULT_CLIENT_ID) {
             SwingUtilities.invokeLater(() -> {
@@ -211,4 +239,37 @@ public class UserListView extends JPanel
             });
         }
     }
+
+    public void sortUserList(List<Long> order) {
+    SwingUtilities.invokeLater(() -> {
+        // Clear all components
+        userListArea.removeAll();
+
+        // Re-add UserListItems in new order
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.weightx = 1;
+        gbc.anchor = GridBagConstraints.NORTH;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(0, 0, 5, 5);
+
+        for (Long clientId : order) {
+            UserListItem item = userItemsMap.get(clientId);
+            if (item != null) {
+                gbc.gridy = userListArea.getComponentCount(); // maintain stacking order
+                userListArea.add(item, gbc);
+            }
+        }
+
+        // Add vertical glue at the end to push items up
+        if (lastConstraints != null) {
+            userListArea.add(Box.createVerticalGlue(), lastConstraints);
+        }
+
+        // Refresh the layout
+        userListArea.revalidate();
+        userListArea.repaint();
+    });
+}
+
 }

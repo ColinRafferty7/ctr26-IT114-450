@@ -13,12 +13,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.smartcardio.Card;
 import Project.Client.Interfaces.IClientEvents;
 import Project.Client.Interfaces.IConnectionEvents;
 import Project.Client.Interfaces.IMessageEvents;
 import Project.Client.Interfaces.IPhaseEvent;
 import Project.Client.Interfaces.IPointsEvent;
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Client.Interfaces.IReadyEvent;
 import Project.Client.Interfaces.IRoomEvents;
 import Project.Client.Interfaces.ITimeEvents;
@@ -36,6 +36,7 @@ import Project.Common.CardsPayload;
 import Project.Common.CardType;
 import Project.Common.PointsPayload;
 import Project.Common.ReadyPayload;
+import Project.Common.ClientListPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
@@ -564,6 +565,9 @@ public enum Client {
             case PayloadType.CARDS:
                 processCardsSync(payload);
                 break;
+            case PayloadType.CLIENT_LIST:
+                processOrderList(payload);
+                break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
                 break;
@@ -608,18 +612,27 @@ public enum Client {
     }
 
     // Start process*() methods
-private void processCardsSync(Payload payload)
+    private void processCardsSync(Payload payload)
     {
         CardsPayload cp = (CardsPayload) payload;
         myUser.syncCards(cp.getCards());
-        try 
-        {
-            showHand();
+        long targetId = cp.getClientId();
+        int cards = cp.getCards().size();
+        if (targetId == Constants.DEFAULT_CLIENT_ID) {
+            passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
+        } else if (knownClients.containsKey(targetId)) {
+            LoggerUtil.INSTANCE.info("passToUICallBack");
+            knownClients.get(targetId).setCardCount(cards);
+            passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(targetId, cards));
         }
-        catch (Exception e)
-        {
+    }
 
-        }
+    private void processOrderList(Payload payload)
+    {
+        ClientListPayload clp = (ClientListPayload) payload;
+        List<Long> clients = clp.getClients();
+        passToUICallback(IRoomEvents.class, e -> e.sortUserList(clients));
+        
     }
 
     private void processPoints(Payload payload) {
@@ -712,6 +725,7 @@ private void processCardsSync(Payload payload)
         passToUICallback(IReadyEvent.class, e -> e.onReceiveReady(Constants.DEFAULT_CLIENT_ID, false, true));
         passToUICallback(ITurnEvent.class, e -> e.onTookTurn(Constants.DEFAULT_CLIENT_ID, false));
         passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
+        passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
     }
 
     private void processReadyStatus(Payload payload, boolean isQuiet) {

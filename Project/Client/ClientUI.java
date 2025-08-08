@@ -228,4 +228,8 @@ public class ClientUI extends JFrame implements ICardControls, IConnectionEvents
     }
     // Client interface callbacks end
 
+    public void sortUserList(List<Long> order)
+    {
+        
+    }
 }

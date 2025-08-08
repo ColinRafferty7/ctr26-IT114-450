@@ -5,27 +5,65 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import NDFF.Common.Constants;
+import NDFF.Common.Card;
 import NDFF.Common.CatchData;
+import NDFF.Common.Constants;
 import NDFF.Common.FishType;
 import NDFF.Common.LoggerUtil;
 import NDFF.Common.Phase;
 import NDFF.Common.RoomAction;
 import NDFF.Common.TextFX;
+import NDFF.Common.TextFX.Color;
+import NDFF.Common.TimerType;
+import NDFF.Common.Payloads.CardsPayload;
 import NDFF.Common.Payloads.ConnectionPayload;
 import NDFF.Common.Payloads.CoordPayload;
 import NDFF.Common.Payloads.FishPayload;
 import NDFF.Common.Payloads.Payload;
 import NDFF.Common.Payloads.PayloadType;
+import NDFF.Common.Payloads.PointsPayload;
 import NDFF.Common.Payloads.ReadyPayload;
 import NDFF.Common.Payloads.RoomResultPayload;
-import NDFF.Common.TextFX.Color;
+import NDFF.Common.Payloads.TimerPayload;
 
 /**
  * A server-side representation of a single client
  */
 public class ServerThread extends BaseServerThread {
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
+    // server-side only data
+    private float catchMultiplier = 0; // multiplier for catch probability
+    private int fishingAttempts = 0; // number of fishing attempts made by the client
+
+    protected float getCatchMultiplier() {
+        return catchMultiplier;
+    }
+
+    protected void adjustCatchMultiplier(float change) {
+        this.catchMultiplier += change;
+        if (this.catchMultiplier < 0) {
+            this.catchMultiplier = 0; // prevent negative multiplier
+        }
+    }
+
+    protected int getFishingAttempts() {
+        return fishingAttempts;
+    }
+
+    protected void adjustFishingAttempts(int change) {
+        this.fishingAttempts += change;
+        if (this.fishingAttempts < 0) {
+            this.fishingAttempts = 0; // prevent negative attempts
+        }
+    }
+
+    protected void resetCatchMultiplier() {
+        this.catchMultiplier = 0;
+    }
+
+    protected void resetFishingAttempts() {
+        this.fishingAttempts = 0;
+    }
 
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
@@ -33,6 +71,7 @@ public class ServerThread extends BaseServerThread {
      * 
      * @param message
      */
+    @Override
     protected void info(String message) {
         LoggerUtil.INSTANCE
                 .info(TextFX.colorize(String.format("Thread[%s]: %s", this.getClientId(), message), Color.CYAN));
@@ -59,6 +98,66 @@ public class ServerThread extends BaseServerThread {
     }
 
     // Start Send*() Methods
+    public boolean sendAwayStatus(long clientId, boolean isAway, boolean isQuiet) {
+        ReadyPayload rp = new ReadyPayload();
+        rp.setClientId(clientId);
+        rp.setReady(isAway);
+        rp.setPayloadType(isQuiet ? PayloadType.SYNC_AWAY : PayloadType.AWAY);
+
+        return sendToClient(rp);
+    }
+
+    /**
+     * Syncs a specific client's points
+     * 
+     * @param clientId
+     * @param points
+     * @return
+     */
+    public boolean sendPlayerPoints(long clientId, int points) {
+        PointsPayload rp = new PointsPayload();
+        rp.setPoints(points);
+        rp.setClientId(clientId);
+        return sendToClient(rp);
+    }
+
+    public boolean sendGameEvent(String str) {
+        return sendMessage(Constants.GAME_EVENT_CHANNEL, str);
+    }
+
+    /**
+     * Syncs the current time of a specific TimerType
+     * 
+     * @param timerType
+     * @param time
+     * @return
+     */
+    public boolean sendCurrentTime(TimerType timerType, int time) {
+        TimerPayload tp = new TimerPayload();
+        tp.setTime(time);
+        tp.setTimerType(timerType);
+        return sendToClient(tp);
+    }
+
+    public boolean sendModifyHand(Card card, boolean isAdd) {
+        CardsPayload cp = new CardsPayload(List.of(card));
+        cp.setPayloadType(isAdd ? PayloadType.CARDS_ADD : PayloadType.CARDS_REMOVE);
+        return sendToClient(cp);
+    }
+
+    /**
+     * Sends the current hand of cards to the client.
+     * Doesn't take data as the cards are already stored in the User object.
+     * Chose to explicitly create a method for more precise sync control versus
+     * adding auto syning in the add/remove methods.
+     * 
+     * @return
+     */
+    public boolean sendCurrentHand() {
+        CardsPayload cp = new CardsPayload(getCards());
+        cp.setPayloadType(PayloadType.CARDS);
+        return sendToClient(cp);
+    }
 
     public boolean sendCaughtFishUpdate(long clientId, int x, int y, CatchData caughtFish) {
         FishPayload fp = new FishPayload(x, y, caughtFish);
@@ -135,7 +234,7 @@ public class ServerThread extends BaseServerThread {
     }
 
     protected boolean sendResetUserList() {
-        return sendClientInfo(Constants.DEFAULT_CLIENT_ID, null, RoomAction.JOIN);
+        return sendClientInfo(Constants.DEFAULT_CLIENT_ID, null, null, RoomAction.JOIN);
     }
 
     /**
@@ -146,8 +245,8 @@ public class ServerThread extends BaseServerThread {
      * @param action     RoomAction of Join or Leave
      * @return true for successful send
      */
-    protected boolean sendClientInfo(long clientId, String clientName, RoomAction action) {
-        return sendClientInfo(clientId, clientName, action, false);
+    protected boolean sendClientInfo(long clientId, String clientName, String roomName, RoomAction action) {
+        return sendClientInfo(clientId, clientName, roomName, action, false);
     }
 
     /**
@@ -160,7 +259,8 @@ public class ServerThread extends BaseServerThread {
      *                   sync)
      * @return true for successful send
      */
-    protected boolean sendClientInfo(long clientId, String clientName, RoomAction action, boolean isSync) {
+    protected boolean sendClientInfo(long clientId, String clientName, String roomName, RoomAction action,
+            boolean isSync) {
         ConnectionPayload payload = new ConnectionPayload();
         switch (action) {
             case JOIN:
@@ -177,6 +277,7 @@ public class ServerThread extends BaseServerThread {
         }
         payload.setClientId(clientId);
         payload.setClientName(clientName);
+        payload.setMessage(roomName);
         return sendToClient(payload);
     }
 
@@ -198,6 +299,7 @@ public class ServerThread extends BaseServerThread {
     /**
      * Sends a message to the client
      * 
+     * @param clientId who it's from
      * @param message
      * @return true for successful send
      */
@@ -266,6 +368,23 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a cast");
                 }
                 break;
+            case USE:
+                try {
+                    CardsPayload cp = (CardsPayload) incoming;
+                    // cast to GameRoom as the subclass will handle all Game logic
+                    ((GameRoom) currentRoom).handleUseCard(this, cp.getX(), cp.getY(), cp.getCards());
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to use a card");
+                }
+                break;
+            case AWAY:
+                try {
+                    // cast to GameRoom as the subclass will handle all Game logic
+                    ((GameRoom) currentRoom).handleAwayAction(this);
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to set away status");
+                }
+                break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
@@ -296,6 +415,39 @@ public class ServerThread extends BaseServerThread {
     protected int getPoints() {
         return this.user.getPoints();
     }
+
+    protected void addCard(Card card) {
+        this.user.addCard(card);
+    }
+
+    protected Card removeCard(Card card) {
+        return this.user.removeCard(card);
+    }
+
+    protected boolean hasCard(Card card) {
+        return this.user.hasCard(card);
+    }
+
+    protected List<Card> getCards() {
+        return this.user.getCards();
+    }
+
+    protected void setAway(boolean isAway) {
+        this.user.setAway(isAway);
+    }
+
+    protected boolean isAway() {
+        return this.user.isAway();
+    }
+    /*
+     * protected void setPoints(int points) {
+     * this.user.setPoints(points);
+     * }
+     * 
+     * protected void changePoints(int points) {
+     * this.user.setPoints(this.user.getPoints() + points);
+     * }
+     */
 
     @Override
     protected void onInitialized() {

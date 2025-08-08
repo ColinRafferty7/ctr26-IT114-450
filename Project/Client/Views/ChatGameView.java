@@ -97,4 +97,9 @@ public class ChatGameView extends JPanel implements IRoomEvents, IPhaseEvent {
         showGameView();
 
     }
+
+    public void sortUserList(List<Long> order)
+    {
+        
+    }
 }
