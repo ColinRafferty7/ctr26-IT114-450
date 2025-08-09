@@ -20,4 +20,6 @@ public interface IConnectionEvents extends IClientEvents {
      * @param id The client ID.
      */
     void onReceiveClientId(long id);
+
+    void roomCreator();
 }

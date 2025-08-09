@@ -13,7 +13,9 @@ public enum CardType {
     _10("10"),
     _J("J"),
     _Q("Q"),
-    _K("K");
+    _K("K"),
+    _X("X"),
+    ;
 
     private final String cardName;
 

@@ -6,12 +6,16 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import Project.Common.TextFX;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Common.CardType;
 import Project.Common.TimedEvent;
 import Project.Common.TimerType;
+import Project.Common.TextFX.Color;
+import Project.Exceptions.IsAwayException;
 import Project.Exceptions.MissingCurrentPlayerException;
 import Project.Exceptions.NotPlayersTurnException;
 import Project.Exceptions.NotReadyException;
@@ -27,27 +31,32 @@ public class GameRoom extends BaseGameRoom {
     private TimedEvent turnTimer = null;
     private List<ServerThread> turnOrder = new ArrayList<>();
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
+    private ServerThread creator;
     private int round = 0;
-
     private Deck deck;
 
-    public GameRoom(String name) {
+    public GameRoom(String name, ServerThread creator) {
         super(name);
+        this.creator = creator;
     }
 
     /** {@inheritDoc} */
     @Override
     protected void onClientAdded(ServerThread sp) {
         // sync GameRoom state to new client
+        syncHost(sp);
 
         syncCurrentPhase(sp);
         // sync only what's necessary for the specific phase
         // if you blindly sync everything, you'll get visual artifacts/discrepancies
         syncReadyStatus(sp);
+        syncAwayStatus(sp);
         if (currentPhase != Phase.READY) {
             syncTurnStatus(sp); // turn/ready use the same visual process so ensure turn status is only called
                                 // outside of ready phase
             syncPlayerPoints(sp);
+
+            syncPlayerCards(sp);
         }
 
     }
@@ -115,24 +124,36 @@ public class GameRoom extends BaseGameRoom {
         setTurnOrder();
         round = 0;
 
-        deck = new Deck();
+        clientsInRoom.values().forEach( client -> {
+            client.setPoints(0);
+        });
+        LoggerUtil.INSTANCE.info("Include Jokers: " + includeJokers);
+        deck = new Deck(numDecks, includeJokers);
         dealCards();
+        clientsInRoom.values().forEach( client -> {
+            syncPlayerCards(client);
+        });
 
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
     }
 
-    protected void dealCards()
-    {
+    protected void dealCards() {
         LoggerUtil.INSTANCE.info("GameRoom: " + turnOrder.size());
         turnOrder.forEach(player -> {
             player.clearHand();
-            for (int i = 0; i < 7; i++)
-            {
+            for (int i = 0; i < 7; i++) {
                 player.addCard(deck.draw());
             }
-            player.checkForPair();
-            player.sendCurrentHand();
+            updatePoints(player, false);
+            sendHand(player);
+        });
+    }
+
+    protected void showHands()
+    {
+        clientsInRoom.values().forEach( client -> {
+            sendGameEvent("Your hand: " + client.getHand().toString(), new ArrayList<Long>(List.of(client.getClientId())));
         });
     }
 
@@ -159,8 +180,18 @@ public class GameRoom extends BaseGameRoom {
         resetTurnTimer();
         try {
             ServerThread currentPlayer = getNextPlayer();
+            // handle away status
+            if (currentPlayer.isAway()) {
+                sendGameEvent(String.format("%s is currently away and is getting skipped",
+                        currentPlayer.getDisplayName()));
+
+                onTurnEnd(); // skip the turn
+                return;
+            }
             // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            sendGameEvent("Cards left: " + deck.cardsLeft());
+            showHands();
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
 
             e.printStackTrace();
@@ -213,14 +244,23 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onSessionEnd() start");
         turnOrder.clear();
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
-        resetReadyStatus();
-        resetTurnStatus();
+        // resetReadyStatus();
+        // resetTurnStatus();
+        /*
+         * Will leverage phase change to READY to tell clients to reset all session
+         * data.
+         * More efficient than having a ton of different reset methods for ultimately
+         * the same goal.
+         * Some reset methods may still be needed, but this will cover most of the
+         * session reset logic.
+         */
         changePhase(Phase.READY);
         LoggerUtil.INSTANCE.info("onSessionEnd() end");
     }
     // end lifecycle methods
 
     // send/sync data to ServerThread(s)
+
     private void syncPlayerPoints(ServerThread incomingClient) {
         clientsInRoom.values().forEach(serverUser -> {
             if (serverUser.getClientId() != incomingClient.getClientId()) {
@@ -235,9 +275,68 @@ public class GameRoom extends BaseGameRoom {
         });
     }
 
+    private void syncPlayerCards(ServerThread incomingClient) {
+        clientsInRoom.values().forEach(serverUser -> {
+            if (serverUser.getClientId() != incomingClient.getClientId()) {
+                boolean failedToSync = !incomingClient.sendCurrentHand(serverUser.getClientId(), serverUser.getHand());
+                if (failedToSync) {
+                    LoggerUtil.INSTANCE.warning(
+                            String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                    disconnect(serverUser);
+                }
+            }
+        });
+    }
+
+    private void syncHost(ServerThread sp)
+    {
+        clientsInRoom.values().forEach(serverUser -> {
+            boolean failedToSync = !sp.sendHost(serverUser.getClientId(), creator.getClientId());
+            if (failedToSync) {
+                LoggerUtil.INSTANCE.warning(
+                        String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                disconnect(serverUser);
+            }
+        });
+    }
+
     private void sendPlayerPoints(ServerThread sp) {
         clientsInRoom.values().removeIf(spInRoom -> {
             boolean failedToSend = !spInRoom.sendPlayerPoints(sp.getClientId(), sp.getPoints());
+            if (failedToSend) {
+                removeClient(spInRoom);
+            }
+            return failedToSend;
+        });
+    }
+
+    private void sendPlayerCards(ServerThread sp) {
+        clientsInRoom.values().removeIf(spInRoom -> {
+            boolean failedToSend = !spInRoom.sendCurrentHand(sp.getClientId(), sp.getHand());
+            if (failedToSend) {
+                removeClient(spInRoom);
+            }
+            return failedToSend;
+        });
+    }
+
+    private void syncAwayStatus(ServerThread incomingClient) {
+        clientsInRoom.values().forEach(serverUser -> {
+            if (serverUser.getClientId() != incomingClient.getClientId()) {
+                boolean failedToSync = !incomingClient.sendAwayStatus(serverUser.getClientId(),
+                        serverUser.isAway(), true);
+                if (failedToSync) {
+                    LoggerUtil.INSTANCE.warning(
+                            String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                    disconnect(serverUser);
+                }
+            }
+        });
+    }
+
+    private void sendAwayStatus(ServerThread sp) {
+        clientsInRoom.values().removeIf(spInRoom -> {
+            boolean failedToSend = !spInRoom.sendAwayStatus(sp.getClientId(), sp.isAway(), false);
             if (failedToSend) {
                 removeClient(spInRoom);
             }
@@ -280,6 +379,31 @@ public class GameRoom extends BaseGameRoom {
 
     // end send data to ServerThread(s)
 
+    private void sendHand(ServerThread player)
+    {
+        syncPlayerCards(player);
+        player.sendCurrentHand(player.getClientId(), player.getHand());
+    }
+
+    private void updatePoints(ServerThread player, boolean wildcard)
+    {
+        int points;
+        if (wildcard)
+        {
+            points = 1;
+        }
+        else 
+        {
+            points = player.checkForPair();  
+        }
+        sendGameEvent(String.format("%s %s", player.getDisplayName(),
+        points > 0 ? "gained a point" : "didn't gain a point"));
+        if (points > 0) {
+            player.changePoints(points);
+            sendPlayerPoints(player); 
+        }
+    }
+
     // misc methods
     private void resetTurnStatus() {
         clientsInRoom.values().forEach(sp -> {
@@ -295,6 +419,19 @@ public class GameRoom extends BaseGameRoom {
         turnOrder.clear();
         turnOrder = clientsInRoom.values().stream().filter(ServerThread::isReady).collect(Collectors.toList());
         Collections.shuffle(turnOrder);
+        List<Long> clientIds = turnOrder.stream().map(ServerThread::getClientId).collect(Collectors.toList());
+        sendTurnOrder(clientIds);
+        clientsInRoom.values().stream().filter(client -> !client.isReady()).collect(Collectors.toList()).forEach( e -> {
+            sendGameEvent(e.getClientName() + " is spectating this game");
+        });
+
+    }
+
+    private void sendTurnOrder(List<Long> clients)
+    {
+        clientsInRoom.values().forEach( e -> {
+            e.sendTurnOrder(clients);
+        });
     }
 
     /**
@@ -369,15 +506,40 @@ public class GameRoom extends BaseGameRoom {
     }
 
     // start check methods
+    private void checkIsAway(ServerThread currentUser) throws IsAwayException {
+        if (currentUser.isAway()) {
+            throw new IsAwayException("You are currently away and cannot take actions");
+        }
+    }
+
     private void checkCurrentPlayer(long clientId) throws NotPlayersTurnException {
         if (currentTurnClientId != clientId) {
             throw new NotPlayersTurnException("You are not the current player");
         }
     }
 
+    private void checkTookTurn(ServerThread currentUser) throws NotPlayersTurnException {
+        if (currentUser.didTakeTurn()) {
+            throw new NotPlayersTurnException("You have already taken your turn this round");
+        }
+    }
     // end check methods
 
     // receive data from ServerThread (GameRoom specific)
+    protected void handleAwayAction(ServerThread currentUser) {
+        try {
+            checkPlayerInRoom(currentUser);
+            // anyone can be away whenever so there are less required "checks" here
+            // toggle away status
+            currentUser.setAway(!currentUser.isAway());
+            sendAwayStatus(currentUser);
+        } catch (PlayerNotFoundException e) {
+            currentUser.sendGameEvent("You must be in a GameRoom to do the away action");
+            LoggerUtil.INSTANCE.severe("handleAwayAction exception", e);
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handleAwayAction exception", e);
+        }
+    }
 
     /**
      * Handles the turn action from the client.
@@ -386,6 +548,7 @@ public class GameRoom extends BaseGameRoom {
      * @param exampleText (arbitrary text from the client, can be used for
      *                    additional actions or information)
      */
+
     protected void handleTurnAction(ServerThread currentUser, String exampleText) {
         // check if the client is in the room
         try {
@@ -440,33 +603,68 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
 
-            // example points
-            int points = new Random().nextInt(4) == 3 ? 1 : 0;
-            sendGameEvent(String.format("%s %s", currentUser.getDisplayName(),
-                    points > 0 ? "gained a point" : "didn't gain a point"));
-            if (points > 0) {
-                currentUser.changePoints(points);
-                sendPlayerPoints(currentUser);
-            }
-
             for (ServerThread targetUser : turnOrder)
             {
                 if (targetUser.getClientId() == targetId)
                 {
+                    sendGameEvent(currentUser.getClientName() + " asked " + targetUser.getClientName() + " for a " + targetCard.toString());
                     if (targetUser.getHand().contains(targetCard))
                     {
                         targetUser.removeCard(targetCard);
-                        targetUser.sendCurrentHand();
                         currentUser.addCard(targetCard);
+                        sendGameEvent(currentUser.getClientName() + " recieved a " + targetCard.toString() + " from " + targetUser.getClientName());
                     }
                     else 
                     {
                         currentUser.addCard(deck.draw());
+                        sendGameEvent("GO FISH!");
                     }
-                    currentUser.checkForPair(); 
-                    currentUser.sendCurrentHand();
+                    updatePoints(currentUser, false);
+                    sendHand(targetUser);
+                    sendHand(currentUser);
                 }
             }
+
+            currentUser.setTookTurn(true);
+            // TODO handle example text possibly or other turn related intention from client
+            sendTurnStatus(currentUser, currentUser.didTakeTurn());
+            // finished processing the turn
+            onTurnEnd();
+        } catch (NotPlayersTurnException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (NotReadyException e) {
+            // The check method already informs the currentUser
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PlayerNotFoundException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (PhaseMismatchException e) {
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID,
+                    "You can only take a turn during the IN_PROGRESS phase");
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+        }
+    }
+
+    protected void handleWildcard(ServerThread currentUser, CardType card)
+    {
+        try {
+            checkPlayerInRoom(currentUser);
+            checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
+            checkCurrentPlayer(currentUser.getClientId());
+            checkIsReady(currentUser);
+            if (currentUser.didTakeTurn()) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
+                return;
+            }
+
+            sendGameEvent(currentUser.getClientName() + " used their wildcard!");
+            currentUser.removeCard(CardType._X);
+            currentUser.removeCard(card);
+            sendHand(currentUser);
+            updatePoints(currentUser, true);
 
             currentUser.setTookTurn(true);
             // TODO handle example text possibly or other turn related intention from client

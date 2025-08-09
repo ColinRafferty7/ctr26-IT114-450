@@ -10,18 +10,21 @@ import Project.Common.CardType;
 public class Deck {
     private List<CardType> cards = new ArrayList<>();
 
-    public Deck()
+    public Deck(int numDecks, boolean jokers)
     {
-        loadCards();
+        loadCards(numDecks, jokers);
     }
     
-    public void loadCards()
+    public void loadCards(int numDecks, boolean jokers)
     {
         for (CardType card : CardType.values())
         {
-            for (int i = 0; i < 4; i++)
-            {
-                cards.add(card);
+            for (int i = 0; i < 4 * numDecks; i++)
+            {  
+                if (card.getCardType() != "X" || jokers)
+                {
+                    cards.add(card);
+                }
             }
         }
         shuffle();
@@ -37,6 +40,11 @@ public class Deck {
         CardType drawnCard = cards.get(0);
         cards.remove(0);
         return drawnCard;
+    }
+
+    public int cardsLeft()
+    {
+        return cards.size();
     }
 
     public String toString()

@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+
 import Project.Common.TextFX.Color;
 import Project.Common.TimerPayload;
 import Project.Common.TimerType;
@@ -18,9 +19,19 @@ import Project.Common.ReadyPayload;
 import Project.Common.FishPayload;
 import Project.Common.CardsPayload;
 import Project.Common.PointsPayload;
+import Project.Common.ClientListPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
+import Project.Common.CardsPayload;
+import Project.Common.ConnectionPayload;
+import Project.Common.FishPayload;
+import Project.Common.Payload;
+import Project.Common.PayloadType;
+import Project.Common.PointsPayload;
+import Project.Common.ReadyPayload;
+import Project.Common.RoomResultPayload;
+import Project.Common.TimerPayload;
 
 /**
  * A server-side representation of a single client
@@ -61,6 +72,15 @@ public class ServerThread extends BaseServerThread {
     }
 
     // Start Send*() Methods
+    public boolean sendAwayStatus(long clientId, boolean isAway, boolean isQuiet) {
+        ReadyPayload rp = new ReadyPayload("");
+        rp.setClientId(clientId);
+        rp.setReady(isAway);
+        rp.setPayloadType(isQuiet ? PayloadType.SYNC_AWAY : PayloadType.AWAY);
+
+        return sendToClient(rp);
+    }
+
     /**
      * Syncs a specific client's points
      * 
@@ -79,6 +99,14 @@ public class ServerThread extends BaseServerThread {
         return sendMessage(Constants.GAME_EVENT_CHANNEL, str);
     }
 
+    public boolean sendTurnOrder(List<Long> clients)
+    {
+        ClientListPayload clp = new ClientListPayload(clients);
+        clp.setClientId(getClientId());
+        clp.setPayloadType(PayloadType.CLIENT_LIST);
+        return sendToClient(clp);
+    }
+
     /**
      * Syncs the current time of a specific TimerType
      * 
@@ -94,7 +122,7 @@ public class ServerThread extends BaseServerThread {
     }
 
     public boolean sendResetTurnStatus() {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.RESET_TURN);
         return sendToClient(rp);
     }
@@ -106,7 +134,7 @@ public class ServerThread extends BaseServerThread {
     public boolean sendTurnStatus(long clientId, boolean didTakeTurn, boolean quiet) {
         // NOTE for now using ReadyPayload as it has the necessary properties
         // An actual turn may include other data for your project
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(quiet ? PayloadType.SYNC_TURN : PayloadType.TURN);
         rp.setClientId(clientId);
         rp.setReady(didTakeTurn);
@@ -121,7 +149,7 @@ public class ServerThread extends BaseServerThread {
     }
 
     public boolean sendResetReady() {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.RESET_READY);
         return sendToClient(rp);
     }
@@ -139,7 +167,7 @@ public class ServerThread extends BaseServerThread {
      * @return
      */
     public boolean sendReadyStatus(long clientId, boolean isReady, boolean quiet) {
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setClientId(clientId);
         rp.setReady(isReady);
         if (quiet) {
@@ -224,11 +252,20 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(payload);
     }
 
-    protected boolean sendCurrentHand()
+    protected boolean sendCurrentHand(long clientId, List<CardType> cards)
     {
-        CardsPayload cp = new CardsPayload(getHand());
+        CardsPayload cp = new CardsPayload(cards);
         cp.setPayloadType(PayloadType.CARDS);
+        cp.setClientId(clientId);
         return sendToClient(cp);
+    }
+
+    protected boolean sendHost(long clientId, long hostId)
+    {
+        Payload p = new Payload();
+        p.setClientId(hostId);
+        p.setPayloadType(PayloadType.HOST);
+        return sendToClient(p);
     }
 
     /**
@@ -288,7 +325,9 @@ public class ServerThread extends BaseServerThread {
                 // no data needed as the intent will be used as the trigger
                 try {
                     // cast to GameRoom as the subclass will handle all Game logic
-                    ((GameRoom) currentRoom).handleReady(this);
+                    ReadyPayload rp = (ReadyPayload) incoming;
+                    LoggerUtil.INSTANCE.info("ServerThread: " + rp.getJokers());
+                    ((GameRoom) currentRoom).handleReady(this, rp.getDeckCount(), rp.getJokers());
                 } catch (Exception e) {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
                 }
@@ -310,6 +349,21 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
+            case AWAY:
+                try {
+                    // cast to GameRoom as the subclass will handle all Game logic
+                    ((GameRoom) currentRoom).handleAwayAction(this);
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to set away status");
+                }
+                break;
+            case WILDCARD:
+                try {
+                    FishPayload fp = (FishPayload) incoming;
+                    ((GameRoom) currentRoom).handleWildcard(this, fp.getCardType());
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
+                }
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
@@ -360,15 +414,37 @@ public class ServerThread extends BaseServerThread {
         this.user.clearHand();
     }
 
-    protected void checkForPair()
+    protected int checkForPair()
     {
-        this.user.checkForPair();
+        return this.user.checkForPair();
     }
 
     protected List<CardType> getHand()
     {
         return this.user.getHand();
     }
+
+    protected int getCardCount()
+    {
+        return this.user.getHand().size();
+    }
+
+    protected void setAway(boolean isAway) {
+        this.user.setAway(isAway);
+    }
+
+    protected boolean isAway() {
+        return this.user.isAway();
+    }
+    /*
+     * protected void setPoints(int points) {
+     * this.user.setPoints(points);
+     * }
+     * 
+     * protected void changePoints(int points) {
+     * this.user.setPoints(this.user.getPoints() + points);
+     * }
+     */
 
     @Override
     protected void onInitialized() {

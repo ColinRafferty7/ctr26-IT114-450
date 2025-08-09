@@ -226,4 +226,14 @@ public class ChatView extends JPanel implements IMessageEvents, IConnectionEvent
     public void onReceiveRoomList(List<String> rooms, String message) {
         // unused
     }
+
+    public void sortUserList(List<Long> order)
+    {
+        
+    }
+
+    public void roomCreator()
+    {
+        LoggerUtil.INSTANCE.info("Recieved room");
+    }
 }

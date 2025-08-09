@@ -25,6 +25,7 @@ import Project.Client.Views.ConnectionView;
 import Project.Client.Views.MenuBar;
 import Project.Client.Views.RoomsView;
 import Project.Client.Views.UserDetailsView;
+import Project.Client.Views.ReadyView;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 
@@ -40,6 +41,7 @@ public class ClientUI extends JFrame implements ICardControls, IConnectionEvents
     // separate UI views
     private ConnectionView connectionView;
     private UserDetailsView userDetailsView;
+    private ReadyView readyView;
     private ChatGameView chatGameView;
     private RoomsView roomsView;
     // logger
@@ -228,4 +230,13 @@ public class ClientUI extends JFrame implements ICardControls, IConnectionEvents
     }
     // Client interface callbacks end
 
+    public void sortUserList(List<Long> order)
+    {
+        
+    }
+
+    public void roomCreator()
+    {
+
+    }
 }

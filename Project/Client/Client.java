@@ -13,7 +13,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.smartcardio.Card;
+
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Client.Interfaces.IClientEvents;
 import Project.Client.Interfaces.IConnectionEvents;
 import Project.Client.Interfaces.IMessageEvents;
@@ -24,17 +25,20 @@ import Project.Client.Interfaces.IRoomEvents;
 import Project.Client.Interfaces.ITimeEvents;
 import Project.Client.Interfaces.ITurnEvent;
 import Project.Common.Command;
+import Project.Common.CardsPayload;
 import Project.Common.ConnectionPayload;
+import Project.Common.FishPayload;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
-import Project.Common.ReadyPayload;
+import Project.Common.PointsPayload;
 import Project.Common.FishPayload;
 import Project.Common.CardsPayload;
 import Project.Common.CardType;
 import Project.Common.PointsPayload;
+import Project.Common.ClientListPayload;
 import Project.Common.ReadyPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
@@ -72,6 +76,7 @@ public enum Client {
     // callback that updates the UI
     private static List<IClientEvents> events = new ArrayList<IClientEvents>();
     private String currentRoom;
+    private long hostId;
 
     private void error(String message) {
         LoggerUtil.INSTANCE.severe(TextFX.colorize(String.format("%s", message), Color.RED));
@@ -233,11 +238,12 @@ public enum Client {
                 String message = TextFX.colorize("Known clients:\n", Color.CYAN);
                 LoggerUtil.INSTANCE.info(TextFX.colorize("Known clients:", Color.CYAN));
                 message += String.join("\n", knownClients.values().stream()
-                        .map(c -> String.format("%s %s %s %s",
+                        .map(c -> String.format("%s %s %s %s %s",
                                 c.getDisplayName(),
                                 c.getClientId() == myUser.getClientId() ? " (you)" : "",
                                 c.isReady() ? "[x]" : "[ ]",
-                                c.didTakeTurn() ? "[T]" : "[ ]"))
+                                c.didTakeTurn() ? "[T]" : "[ ]",
+                                c.getPoints()))
                         .toList());
                 LoggerUtil.INSTANCE.info(message);
                 wasCommand = true;
@@ -280,7 +286,7 @@ public enum Client {
                 sendRoomAction(text, RoomAction.LIST);
                 wasCommand = true;
             } else if (text.equalsIgnoreCase(Command.READY.command)) {
-                sendReady();
+                sendReady("", false);
                 wasCommand = true;
             } else if (text.startsWith(Command.EXAMPLE_TURN.command)) {
                 text = text.replace(Command.EXAMPLE_TURN.command, "").trim();
@@ -296,14 +302,37 @@ public enum Client {
                 text = text.replace(Command.TARGET.command, "").trim();
                 sendTarget(text);
                 wasCommand = true;
+            } else if (text.startsWith(Command.WILDCARD.command))
+            {
+                text = text.replace(Command.WILDCARD.command, "").trim();
+                sendWildcard(text);
+                wasCommand = true;
+            } else if (text.equalsIgnoreCase(Command.AWAY.command)) {
+                // toggle away status
+                sendAwayAction(); // send to server
+                wasCommand = true;
             }
         }
         return wasCommand;
     }
 
     // Start Send*() methods
+    public void sendWildcard(String text) throws IOException
+    {
+        CardType targetCard = CardType.fromString(text);
+        if (myUser.getHand().contains(targetCard) && myUser.getHand().contains(CardType._X))
+        {
+            FishPayload fp = new FishPayload(-2, targetCard);
+            fp.setPayloadType(PayloadType.WILDCARD);
+            sendToServer(fp);
+        }
+        else
+        {
+            LoggerUtil.INSTANCE.info("You must match your wildcard with a card you have.");
+        }
+    }
 
-        public void sendTarget(String text) throws IOException
+    public void sendTarget(String text) throws IOException
     {
         String[] data = text.split(" ");
         String targetName = String.join(" ", Arrays.copyOfRange(data, 0, data.length - 1));
@@ -319,7 +348,7 @@ public enum Client {
                     try 
                     {
                         sendToServer(fp);
-                    }
+    }
                     catch (Exception e)
                     {
                         e.printStackTrace();
@@ -337,7 +366,7 @@ public enum Client {
     public void sendDoTurn(String text) throws IOException {
         // NOTE for now using ReadyPayload as it has the necessary properties
         // An actual turn may include other data for your project
-        ReadyPayload rp = new ReadyPayload();
+        ReadyPayload rp = new ReadyPayload("");
         rp.setPayloadType(PayloadType.TURN);
         rp.setReady(true); // <- technically not needed as we'll use the payload type as a trigger
         rp.setMessage(text);
@@ -360,8 +389,10 @@ public enum Client {
      * 
      * @throws IOException
      */
-    public void sendReady() throws IOException {
-        ReadyPayload rp = new ReadyPayload();
+    public void sendReady(String deckCount, boolean jokers) throws IOException {
+        ReadyPayload rp = new ReadyPayload(deckCount);
+        LoggerUtil.INSTANCE.info("Jokers: " + jokers);
+        rp.setJokers(jokers);
         // rp.setReady(true); // <- technically not needed as we'll use the payload type
         // as a trigger
         sendToServer(rp);
@@ -505,6 +536,9 @@ public enum Client {
     }
 
     private void processPayload(Payload payload) {
+        if (!(payload instanceof TimerPayload)) {
+            LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Received payload: %s", payload), Color.CYAN));
+        }
         switch (payload.getPayloadType()) {
             case CLIENT_CONNECT:// unused
                 break;
@@ -561,8 +595,18 @@ public enum Client {
             case PayloadType.POINTS:
                 processPoints(payload);
                 break;
-            case PayloadType.CARDS:
+                            case PayloadType.CARDS:
                 processCardsSync(payload);
+                break;
+            case PayloadType.CLIENT_LIST:
+                processOrderList(payload);
+                break;
+            case PayloadType.HOST:
+                processHost(payload);
+                break;
+            case PayloadType.AWAY:
+            case PayloadType.SYNC_AWAY:
+                processAwayStatus(payload);
                 break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
@@ -607,18 +651,73 @@ public enum Client {
         }
     }
 
+    public void sendAwayAction() throws IOException 
+    {
+        Payload payload = new Payload();
+        payload.setPayloadType(PayloadType.AWAY);
+        sendToServer(payload);
+    }
+
     // Start process*() methods
-private void processCardsSync(Payload payload)
+    private void processAwayStatus(Payload payload) {
+        // Note: Using ReadyPayload since it's my only payload with just a boolean
+        // It'd be best to rename it to something generic or to subclass it for
+        // readability (even if the subclass adds nothing)
+        if (!(payload instanceof ReadyPayload)) {
+            error("Invalid payload subclass for processAwayStatus");
+            return;
+        }
+        ReadyPayload cp = (ReadyPayload) payload;
+        if (cp.getClientId() == Constants.DEFAULT_CLIENT_ID) {
+            // reset all
+            knownClients.values().forEach(c -> c.setAway(false));
+            passToUICallback(ITurnEvent.class, e -> e.onAwayStatusUpdate(Constants.DEFAULT_CLIENT_ID, false));
+        } else if (knownClients.containsKey(cp.getClientId())) {
+            boolean isAway = cp.isReady(); // isReady is just the boolean getter, assume it means isAway here
+            knownClients.get(cp.getClientId()).setAway(isAway);
+            passToUICallback(
+                    ITurnEvent.class,
+                    e -> e.onAwayStatusUpdate(cp.getClientId(), isAway));
+            // updated Game Events View if not a quiet sync
+            if (payload.getPayloadType() != PayloadType.SYNC_AWAY) {
+                clientSideGameEvent(
+                        String.format("%s is now %s", getDisplayNameFromId(cp.getClientId()),
+                                isAway ? "away" : "back"));
+            }
+        } else {
+            LoggerUtil.INSTANCE.warning(String.format("Unknown client id %s for away status update", cp.getClientId()));
+        }
+    }
+
+    private void processCardsSync(Payload payload)
     {
         CardsPayload cp = (CardsPayload) payload;
         myUser.syncCards(cp.getCards());
-        try 
-        {
-            showHand();
+        long targetId = cp.getClientId();
+        int cards = cp.getCards().size();
+        if (targetId == Constants.DEFAULT_CLIENT_ID) {
+            passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
+        } else if (knownClients.containsKey(targetId)) {
+            LoggerUtil.INSTANCE.info("passToUICallBack");
+            knownClients.get(targetId).setCardCount(cards);
+            passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(targetId, cards));
         }
-        catch (Exception e)
-        {
+    }
 
+    private void processOrderList(Payload payload)
+    {
+        ClientListPayload clp = (ClientListPayload) payload;
+        List<Long> clients = clp.getClients();
+        passToUICallback(IRoomEvents.class, e -> e.sortUserList(clients));
+        
+    }
+
+    private void processHost(Payload payload)
+    {
+        hostId = payload.getClientId();
+        if (myUser.getClientId() == hostId)
+        {
+            passToUICallback(IConnectionEvents.class, e -> e.roomCreator());
         }
     }
 
@@ -632,11 +731,11 @@ private void processCardsSync(Payload payload)
         int points = pp.getPoints();
         if (targetId == Constants.DEFAULT_CLIENT_ID) {
             // reset all
-            knownClients.values().forEach(cp -> cp.setPoints(-1));
+            // knownClients.values().forEach(cp -> cp.setPoints(-1));
 
             passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
         } else if (knownClients.containsKey(targetId)) {
-            knownClients.get(targetId).setPoints(points);
+            // knownClients.get(targetId).setPoints(points);
 
             passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(targetId, points));
 
@@ -655,7 +754,7 @@ private void processCardsSync(Payload payload)
 
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
-        System.out.println("Turn status reset for everyone");
+        System.out.println("Ready status turn for everyone");
 
         passToUICallback(ITurnEvent.class, e -> e.onTookTurn(Constants.DEFAULT_CLIENT_ID, false));
     }
@@ -705,13 +804,14 @@ private void processCardsSync(Payload payload)
         knownClients.values().forEach(cp -> {
             cp.setReady(false);
             cp.setTookTurn(false);
-            cp.setPoints(-1);
+            cp.resetSession();
         });
         System.out.println("Ready status reset for everyone");
 
         passToUICallback(IReadyEvent.class, e -> e.onReceiveReady(Constants.DEFAULT_CLIENT_ID, false, true));
         passToUICallback(ITurnEvent.class, e -> e.onTookTurn(Constants.DEFAULT_CLIENT_ID, false));
         passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
+        passToUICallback(ICardsEvent.class, e -> e.onCardsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
     }
 
     private void processReadyStatus(Payload payload, boolean isQuiet) {
@@ -936,4 +1036,5 @@ private void processCardsSync(Payload payload)
             e.printStackTrace();
         }
     }
+
 }
