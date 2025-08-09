@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import Project.Common.TextFX;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
@@ -13,6 +14,8 @@ import Project.Client.Interfaces.ICardsEvent;
 import Project.Common.CardType;
 import Project.Common.TimedEvent;
 import Project.Common.TimerType;
+import Project.Common.TextFX.Color;
+import Project.Exceptions.IsAwayException;
 import Project.Exceptions.MissingCurrentPlayerException;
 import Project.Exceptions.NotPlayersTurnException;
 import Project.Exceptions.NotReadyException;
@@ -30,7 +33,6 @@ public class GameRoom extends BaseGameRoom {
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
     private ServerThread creator;
     private int round = 0;
-
     private Deck deck;
 
     public GameRoom(String name, ServerThread creator) {
@@ -48,6 +50,7 @@ public class GameRoom extends BaseGameRoom {
         // sync only what's necessary for the specific phase
         // if you blindly sync everything, you'll get visual artifacts/discrepancies
         syncReadyStatus(sp);
+        syncAwayStatus(sp);
         if (currentPhase != Phase.READY) {
             syncTurnStatus(sp); // turn/ready use the same visual process so ensure turn status is only called
                                 // outside of ready phase
@@ -177,6 +180,14 @@ public class GameRoom extends BaseGameRoom {
         resetTurnTimer();
         try {
             ServerThread currentPlayer = getNextPlayer();
+            // handle away status
+            if (currentPlayer.isAway()) {
+                sendGameEvent(String.format("%s is currently away and is getting skipped",
+                        currentPlayer.getDisplayName()));
+
+                onTurnEnd(); // skip the turn
+                return;
+            }
             // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent("Cards left: " + deck.cardsLeft());
@@ -233,14 +244,23 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onSessionEnd() start");
         turnOrder.clear();
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
-        resetReadyStatus();
-        resetTurnStatus();
+        // resetReadyStatus();
+        // resetTurnStatus();
+        /*
+         * Will leverage phase change to READY to tell clients to reset all session
+         * data.
+         * More efficient than having a ton of different reset methods for ultimately
+         * the same goal.
+         * Some reset methods may still be needed, but this will cover most of the
+         * session reset logic.
+         */
         changePhase(Phase.READY);
         LoggerUtil.INSTANCE.info("onSessionEnd() end");
     }
     // end lifecycle methods
 
     // send/sync data to ServerThread(s)
+
     private void syncPlayerPoints(ServerThread incomingClient) {
         clientsInRoom.values().forEach(serverUser -> {
             if (serverUser.getClientId() != incomingClient.getClientId()) {
@@ -293,6 +313,30 @@ public class GameRoom extends BaseGameRoom {
     private void sendPlayerCards(ServerThread sp) {
         clientsInRoom.values().removeIf(spInRoom -> {
             boolean failedToSend = !spInRoom.sendCurrentHand(sp.getClientId(), sp.getHand());
+            if (failedToSend) {
+                removeClient(spInRoom);
+            }
+            return failedToSend;
+        });
+    }
+
+    private void syncAwayStatus(ServerThread incomingClient) {
+        clientsInRoom.values().forEach(serverUser -> {
+            if (serverUser.getClientId() != incomingClient.getClientId()) {
+                boolean failedToSync = !incomingClient.sendAwayStatus(serverUser.getClientId(),
+                        serverUser.isAway(), true);
+                if (failedToSync) {
+                    LoggerUtil.INSTANCE.warning(
+                            String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                    disconnect(serverUser);
+                }
+            }
+        });
+    }
+
+    private void sendAwayStatus(ServerThread sp) {
+        clientsInRoom.values().removeIf(spInRoom -> {
+            boolean failedToSend = !spInRoom.sendAwayStatus(sp.getClientId(), sp.isAway(), false);
             if (failedToSend) {
                 removeClient(spInRoom);
             }
@@ -459,15 +503,40 @@ public class GameRoom extends BaseGameRoom {
     }
 
     // start check methods
+    private void checkIsAway(ServerThread currentUser) throws IsAwayException {
+        if (currentUser.isAway()) {
+            throw new IsAwayException("You are currently away and cannot take actions");
+        }
+    }
+
     private void checkCurrentPlayer(long clientId) throws NotPlayersTurnException {
         if (currentTurnClientId != clientId) {
             throw new NotPlayersTurnException("You are not the current player");
         }
     }
 
+    private void checkTookTurn(ServerThread currentUser) throws NotPlayersTurnException {
+        if (currentUser.didTakeTurn()) {
+            throw new NotPlayersTurnException("You have already taken your turn this round");
+        }
+    }
     // end check methods
 
     // receive data from ServerThread (GameRoom specific)
+    protected void handleAwayAction(ServerThread currentUser) {
+        try {
+            checkPlayerInRoom(currentUser);
+            // anyone can be away whenever so there are less required "checks" here
+            // toggle away status
+            currentUser.setAway(!currentUser.isAway());
+            sendAwayStatus(currentUser);
+        } catch (PlayerNotFoundException e) {
+            currentUser.sendGameEvent("You must be in a GameRoom to do the away action");
+            LoggerUtil.INSTANCE.severe("handleAwayAction exception", e);
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handleAwayAction exception", e);
+        }
+    }
 
     /**
      * Handles the turn action from the client.
@@ -476,6 +545,7 @@ public class GameRoom extends BaseGameRoom {
      * @param exampleText (arbitrary text from the client, can be used for
      *                    additional actions or information)
      */
+    
     protected void handleTurnAction(ServerThread currentUser, String exampleText) {
         // check if the client is in the room
         try {

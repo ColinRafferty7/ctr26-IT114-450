@@ -26,6 +26,8 @@ public enum PayloadType {
        RESET_TURN, // trigger to tell client to reset their local list turn status
        TIME, // syncs current time of various timers
        POINTS, // syncs points data
+       AWAY, // used to toggle away status
+       SYNC_AWAY, // quiet version of AWAY, used to sync existing away status
        FISH,
        CARDS,
        CLIENT_LIST,

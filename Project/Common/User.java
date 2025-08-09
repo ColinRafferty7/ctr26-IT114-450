@@ -3,9 +3,11 @@ package Project.Common;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 
-import javax.smartcardio.Card;
+import Project.Common.CardType;
+
 
 public class User {
     private long clientId = Constants.DEFAULT_CLIENT_ID;
@@ -15,6 +17,7 @@ public class User {
     private List<CardType> cards = new ArrayList<>();
     private int points = 0;
     private int cardCount = 0;
+    private boolean isAway = false;
 
     /**
      * @return the points
@@ -75,13 +78,25 @@ public class User {
         this.isReady = isReady;
     }
 
+    /**
+     * Resets the user state, including clientId, clientName, isReady, tookTurn, and
+     * fish. All state is cleared to default values.
+     */
     public void reset() {
         this.clientId = Constants.DEFAULT_CLIENT_ID;
         this.clientName = null;
+        this.resetSession();
+    }
+
+    /**
+     * Resets the session state for the user.
+     */
+    public void resetSession() {
         this.isReady = false;
         this.tookTurn = false;
         this.points = 0;
         this.cards = null;
+        this.isAway = false;
     }
 
     /**
@@ -149,5 +164,13 @@ public class User {
             }
         }
         return pairs;
+    }
+
+    public boolean isAway() {
+        return isAway;
+    }
+
+    public void setAway(boolean isAway) {
+        this.isAway = isAway;
     }
 }

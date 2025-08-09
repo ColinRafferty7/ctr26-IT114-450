@@ -13,29 +13,33 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import Project.Client.Interfaces.ICardsEvent;
 import Project.Client.Interfaces.IClientEvents;
 import Project.Client.Interfaces.IConnectionEvents;
 import Project.Client.Interfaces.IMessageEvents;
 import Project.Client.Interfaces.IPhaseEvent;
 import Project.Client.Interfaces.IPointsEvent;
-import Project.Client.Interfaces.ICardsEvent;
 import Project.Client.Interfaces.IReadyEvent;
 import Project.Client.Interfaces.IRoomEvents;
 import Project.Client.Interfaces.ITimeEvents;
 import Project.Client.Interfaces.ITurnEvent;
 import Project.Common.Command;
+import Project.Common.CardsPayload;
 import Project.Common.ConnectionPayload;
+import Project.Common.FishPayload;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
-import Project.Common.ReadyPayload;
+import Project.Common.PointsPayload;
 import Project.Common.FishPayload;
 import Project.Common.CardsPayload;
 import Project.Common.CardType;
 import Project.Common.PointsPayload;
 import Project.Common.ClientListPayload;
+import Project.Common.ReadyPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
@@ -234,11 +238,12 @@ public enum Client {
                 String message = TextFX.colorize("Known clients:\n", Color.CYAN);
                 LoggerUtil.INSTANCE.info(TextFX.colorize("Known clients:", Color.CYAN));
                 message += String.join("\n", knownClients.values().stream()
-                        .map(c -> String.format("%s %s %s %s",
+                        .map(c -> String.format("%s %s %s %s %s",
                                 c.getDisplayName(),
                                 c.getClientId() == myUser.getClientId() ? " (you)" : "",
                                 c.isReady() ? "[x]" : "[ ]",
-                                c.didTakeTurn() ? "[T]" : "[ ]"))
+                                c.didTakeTurn() ? "[T]" : "[ ]",
+                                c.getPoints()))
                         .toList());
                 LoggerUtil.INSTANCE.info(message);
                 wasCommand = true;
@@ -302,6 +307,10 @@ public enum Client {
                 text = text.replace(Command.WILDCARD.command, "").trim();
                 sendWildcard(text);
                 wasCommand = true;
+            } else if (text.equalsIgnoreCase(Command.AWAY.command)) {
+                // toggle away status
+                sendAwayAction(); // send to server
+                wasCommand = true;
             }
         }
         return wasCommand;
@@ -339,7 +348,7 @@ public enum Client {
                     try 
                     {
                         sendToServer(fp);
-                    }
+    }
                     catch (Exception e)
                     {
                         e.printStackTrace();
@@ -527,6 +536,9 @@ public enum Client {
     }
 
     private void processPayload(Payload payload) {
+        if (!(payload instanceof TimerPayload)) {
+            LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Received payload: %s", payload), Color.CYAN));
+        }
         switch (payload.getPayloadType()) {
             case CLIENT_CONNECT:// unused
                 break;
@@ -583,7 +595,7 @@ public enum Client {
             case PayloadType.POINTS:
                 processPoints(payload);
                 break;
-            case PayloadType.CARDS:
+                            case PayloadType.CARDS:
                 processCardsSync(payload);
                 break;
             case PayloadType.CLIENT_LIST:
@@ -591,6 +603,10 @@ public enum Client {
                 break;
             case PayloadType.HOST:
                 processHost(payload);
+                break;
+            case PayloadType.AWAY:
+            case PayloadType.SYNC_AWAY:
+                processAwayStatus(payload);
                 break;
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
@@ -635,7 +651,44 @@ public enum Client {
         }
     }
 
+    public void sendAwayAction() throws IOException 
+    {
+        Payload payload = new Payload();
+        payload.setPayloadType(PayloadType.AWAY);
+        sendToServer(payload);
+    }
+
     // Start process*() methods
+    private void processAwayStatus(Payload payload) {
+        // Note: Using ReadyPayload since it's my only payload with just a boolean
+        // It'd be best to rename it to something generic or to subclass it for
+        // readability (even if the subclass adds nothing)
+        if (!(payload instanceof ReadyPayload)) {
+            error("Invalid payload subclass for processAwayStatus");
+            return;
+        }
+        ReadyPayload cp = (ReadyPayload) payload;
+        if (cp.getClientId() == Constants.DEFAULT_CLIENT_ID) {
+            // reset all
+            knownClients.values().forEach(c -> c.setAway(false));
+            passToUICallback(ITurnEvent.class, e -> e.onAwayStatusUpdate(Constants.DEFAULT_CLIENT_ID, false));
+        } else if (knownClients.containsKey(cp.getClientId())) {
+            boolean isAway = cp.isReady(); // isReady is just the boolean getter, assume it means isAway here
+            knownClients.get(cp.getClientId()).setAway(isAway);
+            passToUICallback(
+                    ITurnEvent.class,
+                    e -> e.onAwayStatusUpdate(cp.getClientId(), isAway));
+            // updated Game Events View if not a quiet sync
+            if (payload.getPayloadType() != PayloadType.SYNC_AWAY) {
+                clientSideGameEvent(
+                        String.format("%s is now %s", getDisplayNameFromId(cp.getClientId()),
+                                isAway ? "away" : "back"));
+            }
+        } else {
+            LoggerUtil.INSTANCE.warning(String.format("Unknown client id %s for away status update", cp.getClientId()));
+        }
+    }
+
     private void processCardsSync(Payload payload)
     {
         CardsPayload cp = (CardsPayload) payload;
@@ -678,11 +731,11 @@ public enum Client {
         int points = pp.getPoints();
         if (targetId == Constants.DEFAULT_CLIENT_ID) {
             // reset all
-            knownClients.values().forEach(cp -> cp.setPoints(-1));
+            // knownClients.values().forEach(cp -> cp.setPoints(-1));
 
             passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(Constants.DEFAULT_CLIENT_ID, -1));
         } else if (knownClients.containsKey(targetId)) {
-            knownClients.get(targetId).setPoints(points);
+            // knownClients.get(targetId).setPoints(points);
 
             passToUICallback(IPointsEvent.class, e -> e.onPointsUpdate(targetId, points));
 
@@ -701,7 +754,7 @@ public enum Client {
 
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
-        System.out.println("Turn status reset for everyone");
+        System.out.println("Ready status turn for everyone");
 
         passToUICallback(ITurnEvent.class, e -> e.onTookTurn(Constants.DEFAULT_CLIENT_ID, false));
     }
@@ -751,7 +804,7 @@ public enum Client {
         knownClients.values().forEach(cp -> {
             cp.setReady(false);
             cp.setTookTurn(false);
-            cp.setPoints(-1);
+            cp.resetSession();
         });
         System.out.println("Ready status reset for everyone");
 
@@ -850,7 +903,6 @@ public enum Client {
                     connectionPayload.getMessage(),
                     false,
                     true));
-
             return;
         }
         switch (connectionPayload.getPayloadType()) {
@@ -890,7 +942,6 @@ public enum Client {
                         connectionPayload.getMessage(),
                         true,
                         connectionPayload.getPayloadType() == PayloadType.SYNC_CLIENT));
-                LoggerUtil.INSTANCE.info("Client Id: " + myUser.getClientId() + " Host Id: " + hostId);
                 break;
             default:
                 error("Invalid payload type for processRoomAction");
@@ -985,4 +1036,5 @@ public enum Client {
             e.printStackTrace();
         }
     }
+
 }

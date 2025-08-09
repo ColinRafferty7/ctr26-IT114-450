@@ -20,7 +20,7 @@ public enum Command {
     TARGET("target"),
     HAND("hand"),
     WILDCARD("wildcard"),
-    ;
+    AWAY("away"),;
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {

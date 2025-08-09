@@ -24,6 +24,7 @@ import Project.Client.Interfaces.IRoomEvents;
 import Project.Client.Interfaces.ITurnEvent;
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
+import Project.Common.Phase;
 
 /**
  * UserListView represents a UI component that displays a list of users.
@@ -143,6 +144,11 @@ public class UserListView extends JPanel
         } else {
             removeUserListItem(clientId);
         }
+        boolean isInLobby = Constants.LOBBY.equals(roomName);
+        SwingUtilities.invokeLater(() -> {
+            // Update the user items to show/hide game UI based on lobby status
+            userItemsMap.values().forEach(u -> u.toggleGameUI(!isInLobby));
+        });
     }
 
     @Override
@@ -220,7 +226,9 @@ public class UserListView extends JPanel
         if (clientId == Constants.DEFAULT_CLIENT_ID) {
             SwingUtilities.invokeLater(() -> {
                 try {
-                    userItemsMap.values().forEach(u -> u.setTurn(false));// reset all
+                    // userItemsMap.values().forEach(u -> u.setTurn(false));// reset all
+                    // use new method
+                    userItemsMap.values().forEach(u -> u.setReady(false));
                 } catch (Exception e) {
                     LoggerUtil.INSTANCE.severe("Error resetting user items", e);
                 }
@@ -230,7 +238,8 @@ public class UserListView extends JPanel
             SwingUtilities.invokeLater(() -> {
                 try {
                     LoggerUtil.INSTANCE.info("Setting user item ready for id " + clientId + " to " + isReady);
-                    userItemsMap.get(clientId).setTurn(isReady, Color.GRAY);
+                    // userItemsMap.get(clientId).setTurn(isReady, Color.GRAY);
+                    userItemsMap.get(clientId).setReady(isReady);
                 } catch (Exception e) {
                     LoggerUtil.INSTANCE.severe("Error setting user item", e);
                 }
@@ -238,6 +247,20 @@ public class UserListView extends JPanel
         }
     }
 
+    @Override
+    public void onAwayStatusUpdate(long clientId, boolean isAway) {
+        if (clientId == Constants.DEFAULT_CLIENT_ID) {
+            SwingUtilities.invokeLater(() -> {
+                userItemsMap.values().forEach(u -> u.setAway(false)); // reset all
+            });
+        } else if (userItemsMap.containsKey(clientId)) {
+            SwingUtilities.invokeLater(() -> {
+                userItemsMap.get(clientId).setAway(isAway);
+            });
+        }
+    }
+
+    @Override
     public void sortUserList(List<Long> order) {
         SwingUtilities.invokeLater(() -> {
             userListArea.removeAll();
@@ -265,7 +288,8 @@ public class UserListView extends JPanel
             userListArea.repaint();
         });
     }
-    
+
+    @Override
     public void roomCreator()
     {
         
