@@ -126,7 +126,7 @@ public class Room implements AutoCloseable {
      *                server-generated message
      */
     protected synchronized void relay(ServerThread sender, String message) {
-        if (!isRunning) { // block action if Room isn't running
+        if (!isRunning || !sender.isReady()) { // block action if Room isn't running
             return;
         }
 

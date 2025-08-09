@@ -421,6 +421,9 @@ public class GameRoom extends BaseGameRoom {
         Collections.shuffle(turnOrder);
         List<Long> clientIds = turnOrder.stream().map(ServerThread::getClientId).collect(Collectors.toList());
         sendTurnOrder(clientIds);
+        clientsInRoom.values().stream().filter(client -> !client.isReady()).collect(Collectors.toList()).forEach( e -> {
+            sendGameEvent(e.getClientName() + " is spectating this game");
+        });
 
     }
 
@@ -545,7 +548,7 @@ public class GameRoom extends BaseGameRoom {
      * @param exampleText (arbitrary text from the client, can be used for
      *                    additional actions or information)
      */
-    
+
     protected void handleTurnAction(ServerThread currentUser, String exampleText) {
         // check if the client is in the room
         try {
